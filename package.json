@@ -1,6 +1,6 @@
 {
     "name": "@nera-static/plugin-sitemap",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "A plugin for Nera static site generator to generate a sitemap.xml for every rendered page, plus a robots.txt pointer to it.",
     "main": "index.js",
     "scripts": {
@@ -31,7 +31,7 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "https://github.com/seebaermichi/nera-plugin-sitemap"
+        "url": "git+https://github.com/seebaermichi/nera-plugin-sitemap.git"
     },
     "bugs": {
         "url": "https://github.com/seebaermichi/nera-plugin-sitemap/issues"

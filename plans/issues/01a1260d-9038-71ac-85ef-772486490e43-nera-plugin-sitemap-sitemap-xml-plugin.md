@@ -83,7 +83,7 @@ Publishing, pushing and the catalog commits in other repos are handed over, not 
 - **Risks:** overriding a site's deliberate robots.txt — must never happen
 - **Walkthrough:** full (generated sitemap, robots.txt pointer)
 
-### Step 6 — Integration test through core `run()` — ⬜ todo
+### Step 6 — Integration test through core `run()` — ✅ done
 
 - **Goal:** a throwaway site in a temp dir, built with `@nera-static/core`'s `run()`, writes `public/sitemap.xml` and `public/robots.txt` as asserted; second build byte-identical; `base_path` and two languages covered.
 - **Files:** `test/integration.test.js`, `test/helpers.js`

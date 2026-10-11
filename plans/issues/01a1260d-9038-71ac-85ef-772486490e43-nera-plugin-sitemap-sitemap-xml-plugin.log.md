@@ -435,3 +435,71 @@ Divergence: none. As the source predicted, core's base_path asset rewrite leaves
 ## Step 5 — approved (2026-10-11)
 
 snagio: ticked
+commit: 3e9e080
+
+## Step 6 — started (2026-10-11)
+
+base_sha: 3e9e0807e515088081103d0b80179d9d2894b736
+mode: fresh
+
+## Step 6 — implemented (2026-10-11)
+
+base_sha: 3e9e080
+
+### Changed
+- `test/integration.test.js` — new: four throwaway sites built with core's real `run()`, plugin loaded as a site-local plugin (`plugins/sitemap/index.js` re-exporting this repo's `index.js`). (1) bilingual en/de site, no `config/sitemap.yaml`: exact `public/sitemap.xml` (escaped `q&amp;a.html`, `lastmod` from `date`/`lastmod`/`updatedAt`, layout-less, `sitemap: false` and `robots: noindex` pages left out but still rendered), exact `robots.txt`, no warnings, second build byte-identical; (2) `base_path: /sub/` + origin from `canonical-links.yaml` + `output: seo/map.xml` + `exclude: /de/*`: every URL prefixed exactly once (core's asset rewrite does not touch `.xml`/`.txt`), robots pointer to `/sub/seo/map.xml`, no `public/sitemap.xml`; (3) own `assets/robots.txt`: kept verbatim, exactly one warning with the line to add; (4) no origin: one warning, neither file, pages still built.
+- `test/helpers.js` — `build(root)`: chdir into the site, `run()` with absolute folders, console silenced, warnings returned, cwd and spies restored in `finally`. `tempDir()` now returns `fs.realpathSync(...)`.
+- `ROADMAP.md` — slice 6 ticked with a "Done" paragraph.
+
+### Fixed alongside
+- none (the realpath change in `tempDir` is a test-harness fix, not a production defect: the integration test first produced `../../../../var/folders/…/assets/robots.txt` in the warning because the absolute folders used `/var/…` while `process.cwd()` after chdir reports `/private/var/…`. The CLI passes no folders — core resolves them relative to cwd — so real builds are unaffected.)
+
+### Carry forward
+- bug · S · `src/urls.js:22` — `joinUrl` puts `meta.href` into `<loc>` verbatim, so a page file with a space or non-ASCII character (`pages/about us.md`) yields `<loc>https://example.com/about us.html</loc>`, which is not a valid RFC 3986 URL as sitemaps.org requires. Fix would be `encodeURI` on the href (idempotence against already-encoded hrefs needs care) — not now: D2 says "verbatim", so it is a decision, and urls.js is outside this step.
+
+### Verification
+```
+npx vitest run → Test Files  7 passed (7) / Tests  92 passed (92)
+npm run lint → exit 0, no output
+npx vitest run test/integration.test.js ×3 → Tests  11 passed (11) each, 1.1–2.2 s
+temp dirs left in os.tmpdir() matching nera-sitemap-int → 0
+```
+
+### Self-critique
+- Loaded via local `plugins/` dir only, not as a `node_modules/@nera-static/plugin-sitemap` dependency; the dependency path is core's discovery logic, not this plugin's, and symlinking the repo into a temp `node_modules` would make the guard resolve core through the symlink — more moving parts for no new coverage of plugin code.
+- `build()` lives in `helpers.js`, so every unit test file importing helpers now also imports core (a static import). Suite time is unaffected in practice (2.8 s total); a dynamic import inside `build()` would avoid it if the reviewer prefers.
+- Assertions on `sitemap.xml` are exact strings in the main case — brittle by intent, since the XML shape is the public contract.
+- Least sure: the exact warning string in case (3) couples the test to the message wording; I kept it exact because the message *is* the D6 behaviour.
+
+### Pressure-test questions for the reviewer
+1. Is the cwd restored when `run()` throws (the `finally` in `build()`), and are the console spies restored so a failure does not swallow later output?
+2. Does case (2) really prove core does not double-prefix — i.e. would `rewriteAssetUrls` ever touch `.xml`? (render.js rewrites only CSS, manifest and JSON.)
+3. Is the space-in-href `<loc>` (carry forward) acceptable for 1.0, or should it block the release?
+
+## Step 6 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- `test/helpers.js:32` — `process.chdir(root)` moved inside the `try`, so a failing chdir (missing root) still restores the console spies instead of leaving `console.log`/`warn` silenced for the rest of the worker — `npx vitest run && npm run lint` → 92/92 passed, lint exit 0
+
+### Fixed alongside
+- none
+
+### Carry forward
+- debt · S · `test/helpers.js:16` — the unit suites' `tempDir()` calls (config/robots/index/guard tests, earlier steps) never remove their dirs: each `npx vitest run` leaves 33 `nera-sitemap-*` dirs in `os.tmpdir()` (311 present before this review, 344 after one run); only the integration test cleans up — unrelated to this step's goal, and the fix touches four test files outside it
+
+### Checked
+goal (4 sites through real `run()`, exact sitemap/robots, byte-identical rebuild, base_path, en/de) · `npx vitest run` → 7 files / 92 tests passed, `npm run lint` → exit 0 · Non-negotiables + Framework correctness (no hook writes to public/, getAssets path exercised, config fallback with no sitemap.yaml, lastmod from frontmatter, layout-less page absent, deterministic output) · self-critique: local `plugins/` re-export is how a real site loads a local plugin (core `folders.plugins`) — accepted; static core import in helpers costs nothing measurable (suite 4 s) — accepted; exact strings intended as contract — accepted · scope: only test/, ROADMAP slice 6, plan/log · walkthrough n/a (none)
+
+### Answers to the pressure-test questions
+1. Yes for cwd: `process.chdir(prev)` and both `mockRestore()` sit in `finally`, so a throwing `run()` restores all three. The one gap was a throwing `chdir(root)` before the `try` — fixed in review above.
+2. Proven: core's `rewriteAssetUrls` (`node_modules/@nera-static/core/src/render.js:127-150`) only touches files ending `.css`, `.webmanifest`, `.json`; `.xml`/`.txt` are never rewritten, and case (2) asserts the exact `<loc>` list with `/sub/` once and the robots pointer `https://example.org/sub/seo/map.xml`.
+3. Not a blocker for this step — it is already carried forward by the implementer (D2 "verbatim" makes it a user decision). Recommend deciding it in step 7 or a follow-up: Nera page filenames with spaces/non-ASCII are rare, but `encodeURI` on the href would make `<loc>` RFC 3986-valid.
+
+## Step 6 — approved (2026-10-11)
+
+snagio: ticked

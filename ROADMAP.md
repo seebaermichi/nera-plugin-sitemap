@@ -204,7 +204,9 @@ Each slice is one step of the issue plan (`plans/issues/01a1260d-…-sitemap-xml
 
 ### Slice 6 — Integration test through core `run()`
 
-- [ ] A throwaway site in a temp dir built with `@nera-static/core`'s `run()`: `public/sitemap.xml` and `public/robots.txt` as asserted, a second build byte-identical, `base_path` and two languages covered, no network.
+- [x] A throwaway site in a temp dir built with `@nera-static/core`'s `run()`: `public/sitemap.xml` and `public/robots.txt` as asserted, a second build byte-identical, `base_path` and two languages covered, no network.
+
+**Done 2026-10-11.** `test/integration.test.js` loads `index.js` the way a site loads a local plugin (a re-export in the site's `plugins/sitemap/index.js`) and builds four throwaway sites with core's `run()`: a bilingual site without `config/sitemap.yaml` (exact `sitemap.xml` and `robots.txt`, excluded and layout-less pages, a byte-identical second build), a `base_path: /sub/` site with the origin from canonical-links, a custom `output` and an `exclude` pattern (every URL prefixed exactly once — core's asset rewrite leaves `.xml` and `.txt` alone), a site with its own `assets/robots.txt` (kept, one warning), and a site without an origin (one warning, neither file). `test/helpers.js` gained `build()`, which restores the cwd in a `finally`, and `tempDir()` now returns the real path (macOS `/var` → `/private/var`).
 
 ### Slice 7 — README, CHANGELOG, release preparation
 

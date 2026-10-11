@@ -84,6 +84,8 @@ A page's language is its frontmatter `lang`, else `lang` from `config/app.yaml`.
 - with `@nera-static/plugin-canonical-links` installed and configured with `available_languages`, the sitemap uses the same pairs it writes into each page's HTML;
 - otherwise pages with the same `slug` in their frontmatter are translations of each other (`alternates_identifier` picks another key).
 
+Two pages with the same `slug` in the same language cannot both be that language's translation: the build prints a warning naming both, and the first one in path order is used.
+
 Only listed pages appear as alternates, so a translation that is excluded or `noindex` is never linked. A page without a translation, and so a single-language site, gets no alternates. Set `alternates: false` to turn them off.
 
 URLs are `origin` + `base_path` + the page's path, exactly as the site links to it: `pages/index.md` is listed as `https://example.com/index.html`, not shortened to `/`.
@@ -115,7 +117,7 @@ There is no `<changefreq>` and no `<priority>`. Both are optional in the protoco
 When a sitemap is written, the plugin also writes `public/robots.txt` (shown above), unless:
 
 - `robots: false` is set in `config/sitemap.yaml`, or
-- your site has its own `robots.txt` in its assets folder (`assets/robots.txt`, or `folders.assets` from `config/app.yaml`). Your file is never replaced. If it has no `Sitemap:` line, the build prints a warning with the exact line to add.
+- your site has its own `robots.txt` in its assets folder (`assets/robots.txt`, or `folders.assets` from `config/app.yaml`) and your `.neraignore` does not exclude it. Your file is never replaced. If it has no `Sitemap:` line, the build prints a warning with the exact line to add.
 - your theme ships `assets/robots.txt` (a theme package or a local `./…` theme). The theme's file is kept too; without a `Sitemap:` line the build asks you to copy it into your assets folder and add the line. Your own file wins over the theme's.
 
 Crawlers only read `robots.txt` at the root of a host. On a site deployed under a `base_path` (e.g. `https://example.com/docs/`), the generated `public/robots.txt` ends up at `/docs/robots.txt`, where crawlers do not look. It does no harm there; add the `Sitemap:` line to the host's own `robots.txt` instead, or submit the sitemap in Google Search Console and Bing Webmaster Tools.

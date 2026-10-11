@@ -153,6 +153,55 @@ describe('a site with its own robots.txt', () => {
     })
 })
 
+describe('a site whose .neraignore excludes its own robots.txt', () => {
+    let root
+    let warnings
+
+    beforeAll(async () => {
+        root = tempDir('nera-sitemap-int-')
+        makeSite(root, {
+            'assets/robots.txt': 'User-agent: *\nDisallow: /private.html\n',
+            '.neraignore': 'robots.txt\n',
+        })
+        warnings = await build(root)
+    }, 60_000)
+
+    it('writes the generated pointer instead, without a missing-Sitemap warning', () => {
+        expect(read(root, 'robots.txt')).toBe(ROBOTS)
+        expect(warnings).toEqual([])
+    })
+})
+
+describe('a bilingual site with two pages sharing a slug in one language', () => {
+    let root
+    let warnings
+
+    beforeAll(async () => {
+        root = tempDir('nera-sitemap-int-')
+        makeSite(root, {
+            'pages/about.md': page('title: About\nlayout: layout.pug\nslug: about'),
+            'pages/about-old.md': page('title: About (old)\nlayout: layout.pug\nslug: about'),
+            'pages/de/about.md': page('title: Über\nlayout: layout.pug\nlang: de\nslug: about'),
+        })
+        warnings = await build(root)
+    }, 60_000)
+
+    it('warns once, naming the slug, the language and both pages', () => {
+        expect(warnings).toEqual([
+            '⚠️ plugin-sitemap: 2 pages share slug "about" in language "en": ' +
+                '/about-old.html, /about.html. The hreflang alternates use /about-old.html ' +
+                'for "en"; give the others their own slug.',
+        ])
+    })
+
+    it('still lists both pages, the first in href order as the alternate', () => {
+        const xml = read(root, 'sitemap.xml')
+        expect(xml).toContain('<loc>https://example.com/about.html</loc>')
+        expect(xml).toContain('hreflang="en" href="https://example.com/about-old.html"')
+        expect(xml).not.toContain('hreflang="en" href="https://example.com/about.html"')
+    })
+})
+
 describe('a site without an origin', () => {
     let root
     let warnings

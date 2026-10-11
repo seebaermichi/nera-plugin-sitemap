@@ -907,3 +907,103 @@ Goal: canonical/alternate hrefs = origin + app.basePath + meta.href (`../nera-pl
 ## Step 11 — approved (2026-10-11)
 
 snagio: ticked
+commit: 65c3c36
+
+## Browser test (2026-10-11)
+
+- **Result:** PASSED — all 9 cases pass after triage steps 8–11 (encoding, hreflang, base_path on alternates, robots.txt)
+- **Guide:** plans/issues/browser-tests/01a1260d-9038-71ac-85ef-772486490e43-nera-plugin-sitemap-sitemap-xml-plugin.md
+- **Base URL / roles:** http://localhost:3124/ · crawler (anonymous)
+- **AC source:** plan + snapshot 2026-10-11
+- **Tested by:** Claude (Playwright MCP)
+
+| TC | AC (short) | Status | Evidence |
+|---|---|---|---|
+| TC-1 | valid sitemaps.org XML, absolute URLs | PASS | 200 text/xml, 0 parse errors, urlset 0.9 ns, 6 sorted locs under the origin |
+| TC-2 | `&` escaped | PASS | source `a&amp;b.html`, parses to `a&b.html` |
+| TC-3 | percent-encoded locs | PASS | `about%20us.html`, `caf%C3%A9.html`; `new URL()` round-trips all; pages 200 |
+| TC-4 | exclusions (negative) | PASS | `sitemap: false` / `robots: noindex` pages absent, still served |
+| TC-5 | hreflang alternates | PASS | hello pair carries de + en alternates incl. itself; Chrome shows text, not the XML tree (normal with xhtml elements) |
+| TC-6 | no alternates for single-language (negative) | PASS | 4 single-language pages have no `xhtml:link` |
+| TC-7 | base_path on locs and alternates | PASS | all locs + alternates under `https://example.com/sub/`, no `//` |
+| TC-8 | robots.txt pointer | PASS | `Sitemap: https://example.com/sitemap.xml` (`/sub/…` with base_path) |
+| TC-9 | own robots.txt wins (negative) | PASS | own file served unchanged; build warned with the `Sitemap:` line to add |
+
+### Carry forward
+- none
+
+## Decision (2026-10-11)
+
+- Reconciliation: the user chose "fix both first" for the two post-triage carry-forwards (Step 9 reviewed: `.neraignore` in the robots.txt lookup; Step 10 reviewed: duplicate-identifier warning). Added as Step 12 rather than resolving.
+
+## Step 12 — started (2026-10-11)
+
+base_sha: 65c3c3638a47dbf65131d41b9cbd7a31d7d20627
+mode: fresh
+
+## Step 12 — implemented (2026-10-11)
+
+base_sha: 65c3c36
+
+### Changed
+- `src/robots.js` — `readIgnoreList(cwd)` (`.neraignore` from the site root, trimmed non-blank lines) and `isIgnored(list, file, assetsRoot)` (exact or `pattern/` prefix on the POSIX path relative to the assets folder) reproduce core's `getIgnoredFiles`/`ignoreFiles`; `robotsAssets` counts the site file only when not ignored, then falls back to the theme file (never filtered — core's theme pass is `copyFolder(theme.assetsRoot, dist, null)`, checked in `generator/src/index.js:62-73`); the theme warning adds "(and remove it from .neraignore)" when the site copy it suggests would be ignored.
+- `src/sitemap.js` — `pairByIdentifier` collects every href per language and calls `onWarning` once per (identifier value, language) with ≥ 2 pages, only in groups with ≥ 2 languages; output unchanged (first in href order). New `onWarning` option on `collectAlternates` (default no-op) and `buildSitemap` keeps the builder console-free.
+- `index.js` — passes `onWarning: warn` to `buildSitemap`.
+- `test/robots.test.js` — `readIgnoreList` (missing file, CRLF/blank/trim, read from root not `assets/`), `isIgnored` (exact, `/`-boundary prefix, `robots` ≠ `robots.txt`, empty list), `robotsAssets` (ignored site file → generated, `folders.assets` site still reads root `.neraignore`, non-matching patterns keep the site file, ignored site file → theme file wins, un-ignore hint in the theme warning).
+- `test/sitemap.test.js` — `duplicate identifiers`: one warning per clash naming all hrefs, silent for a normal group, monolingual site, pages without identifier, canonical-links pairing; configured identifier named; `buildSitemap` passes it through with byte-identical output.
+- `test/integration.test.js` — through `run()`: `.neraignore` excluding `assets/robots.txt` → generated pointer in `public/`, no warnings; duplicate `slug: about` in `en` → exactly the expected warning, both pages still listed, `/about-old.html` used as the `en` alternate.
+- `ROADMAP.md` — D5 and D6 amended, slice 5's `.neraignore` sentence marked fixed in slice 12, new `### Slice 12` with its Done note.
+- `CHANGELOG.md` — 1.0.0 robots.txt and hreflang bullets amended. `README.md` — robots.txt list item and the multilingual section.
+
+### Fixed alongside
+- none
+
+### Carry forward
+- infra · S · `$TMPDIR` — 680 `nera-sitemap-*` dirs from runs before Step 9's cleanup remain; this run adds none (680 before and after). Not deleted: outside the repo, the user's call (`rm -rf "$TMPDIR"/nera-sitemap-*`).
+
+### Verification
+```
+npx vitest run → Test Files  7 passed (7) / Tests  147 passed (147)
+npm run lint → eslint . (no output, exit 0)
+ls $TMPDIR | grep -c nera-sitemap → 680 before the run, 680 after
+```
+
+### Self-critique
+- The plan asked for "an ignored directory prefix covering it" as a robots test. A prefix cannot cover a file at the assets root under core's rule (`robots.txt` relative path has no `/`), so that case is proven at unit level with a nested path (`seo/robots.txt`) and the boundary case `robots` ≠ `robots.txt`; the robots tests assert a non-matching set (`robots`, `robots.txt/`, `assets/robots.txt`) keeps the site file.
+- Re-implemented core's matcher (~15 lines) instead of importing `ignoreFiles` from `@nera-static/core/render`: the peer range is `>=4.13.0` and that export's stability across versions is not part of core's public barrel. Risk: drift if core ever adds wildcards — the docblocks name the core functions so a reviewer can diff them.
+- Warning only in groups with ≥ 2 languages (the plan's "cannot fire for a single-language site"): a duplicate in a one-language group changes no output, so it stays silent even on a multilingual site. Rejected: warning on every duplicate (noisy for monolingual blogs reusing `slug`).
+- "Once per clash" read as once per (value, language), listing all pages — for three duplicates that is one warning, not two.
+- Least sure: the wording of the warning message and whether `.neraignore` lines with leading `/` or `./` should match — core does not match them, so neither does this (exactly core's).
+
+### Pressure-test questions for the reviewer
+1. Is `isIgnored` byte-for-byte core's `ignoreFiles` inverted (relative to `path.dirname(site)` = the resolved assets folder, `\` → `/`, `=== pattern || startsWith(pattern + '/')`)?
+2. With no `.neraignore`, is every earlier robots test still unchanged (yes: `readIgnoreList` → `[]`, `isIgnored` → false)?
+3. Can the duplicate warning fire on a monolingual site or for pages without the identifier, or when canonical-links' `alternateLinks` drive pairing?
+
+## Step 12 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- none
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none (the implementer's `$TMPDIR` leftover — 680 `nera-sitemap-*` dirs from pre-Step-9 runs — is already carried in the implemented report; confirmed 680 before and after this review's run too)
+
+### Checked
+Goal (both fixes + ROADMAP D5/D6/slice 5/slice 12, CHANGELOG 1.0.0 bullets, README) · `npx vitest run` → 7 files / 147 tests passed · `npm run lint` → exit 0, no output · `$TMPDIR` nera-sitemap count 680 → 680 · core diffed: `generator/src/render.js:317-337` (`getIgnoredFiles`, `ignoreFiles`), `generator/src/index.js:62-76` (theme pass `copyFolder(theme.assetsRoot, dist, null)`, site pass `copyFolder(assets, dist, '.')`) · Non-negotiables (hooks synchronous, no write to `public/` — still via cache + `getAssets`, ROADMAP updated in-step, no publish/push) · Framework correctness (deterministic output: duplicate path keeps first in href order, byte-identical XML proven by test) · Tests & hygiene (unit + integration through `run()`) · scope: only the step's files plus the plan/log/marker bookkeeping; untracked `.playwright-mcp/` is not part of the diff · walkthrough n/a (none).
+
+### Answers to the pressure-test questions
+1. Yes. `readIgnoreList` is `getIgnoredFiles` line for line (`path.join(base, '.neraignore')`, `existsSync`, utf8, split `\n`, trim, drop blanks) with base = `cwd`, matching core's `'.'` site pass. `isIgnored` is `!ignoreFiles(...)`: same `path.relative(sourceRoot, file).replace(/\\/g, '/')` and `=== pattern || startsWith(pattern + '/')`. `sourceRoot` = `path.dirname(siteRobotsPath)` = `path.resolve(cwd, app.folders.assets || './assets')`, the folder core walks. The theme file is never filtered, matching core's `null` ignore base. CRLF lines are trimmed in both (test covers it).
+2. Yes. Without `.neraignore` `readIgnoreList` returns `[]`, `isIgnored([], …)` is false, and `own` reduces to the old `[site, theme].find(isFile)` order; all earlier robots tests pass unchanged in the 147.
+3. No. The warning loop skips groups with `group.size < 2` (one language → silent, so every monolingual site is silent), pages without a non-empty identifier never enter `groups`, and `onWarning` is only passed to `pairByIdentifier`, never to `pairByAlternateLinks`. Each case has a test in `test/sitemap.test.js` `duplicate identifiers`; the integration test proves the warning reaches `warn` through `run()` exactly once.
+
+## Step 12 — approved (2026-10-11)
+
+snagio: ticked

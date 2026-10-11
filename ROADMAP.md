@@ -109,7 +109,7 @@ Amended 2026-10-11 (Step 10, closing O1, still in 1.0.0): every listed page that
 Pairing translations:
 
 - When `plugin-canonical-links` has filled a non-empty `meta.alternateLinks` on **any** listed page, its pairing is used for the whole site (it honours its `available_languages` and `page_identifier`). Its `href` is `origin + basePath + meta.href` since canonical-links 2.2.3 and `origin + meta.href` before (O3); both forms are resolved back to a listed page by that string (the current form wins if two pages collide) and the URL is rebuilt from that page's `meta.href` like `<loc>` (origin + basePath + percent-encoding).
-- Otherwise pages are paired by the frontmatter key `alternates_identifier` (default `slug`, canonical-links' default `page_identifier`): listed pages with a language and the same non-empty value form one group. Within a group the first page per language in `href` order wins.
+- Otherwise pages are paired by the frontmatter key `alternates_identifier` (default `slug`, canonical-links' default `page_identifier`): listed pages with a language and the same non-empty value form one group. Within a group the first page per language in `href` order wins. Amended 2026-10-11 (Step 12, still in 1.0.0): when such a group has at least two languages and two or more of its pages share one language, the build warns once per identifier value and language, naming the value, the language and every page (`href` order, the kept one first); the output is unchanged. A group with one language has no alternates, so the duplicate changes nothing and stays silent — a monolingual site never sees the warning. canonical-links' pairing is never checked.
 
 An alternate only ever points at a **listed** page — never at an excluded, `noindex`, `sitemap: false` or layout-less one, and a canonical-links link whose target page has another language than its `hreflang` is dropped. `alternates: false` turns the feature off. No `x-default` entry (no reliable signal for which page is the default).
 
@@ -124,7 +124,7 @@ Allow: /
 Sitemap: <origin><basePath>/<output>
 ```
 
-written to `.nera-cache/sitemap/robots.txt`, copied to `public/robots.txt`. If the site ships its own `robots.txt` in its assets folder (`app.folders.assets`, default `./assets`, resolved from the site root), the plugin **does not return the entry** — the site's file is deliberate and is never overridden (the copy order would let the site win anyway; skipping it keeps the intent explicit). When that file has no `Sitemap:` line (case-insensitive, at line start), the plugin warns once with the exact line to add.
+written to `.nera-cache/sitemap/robots.txt`, copied to `public/robots.txt`. If the site ships its own `robots.txt` in its assets folder (`app.folders.assets`, default `./assets`, resolved from the site root), the plugin **does not return the entry** — the site's file is deliberate and is never overridden (the copy order would let the site win anyway; skipping it keeps the intent explicit). A site file the site's `.neraignore` excludes does not count (amended 2026-10-11, Step 12): core never copies it, so the generated pointer is written instead. The match is core's (`render.js` `getIgnoredFiles`/`ignoreFiles`): `.neraignore` read from the site root, one trimmed pattern per line, matched against the path relative to the assets folder with `/` separators — equal, or a prefix followed by `/`; no wildcards. The theme's file is never filtered, because core copies theme assets unfiltered (`index.js`, `copyFolder(theme.assetsRoot, dist, null)`). When that file has no `Sitemap:` line (case-insensitive, at line start), the plugin warns once with the exact line to add.
 
 A theme's `robots.txt` counts the same way (amended 2026-10-11, Step 9, closing O4): core copies theme assets first and plugin assets over them, so a generated file would silently replace the theme's. When the site has no file of its own, the plugin looks for `assets/robots.txt` in the theme root — for `app.theme.package`, the package's `package.json` resolved from the **site** (`createRequire` on the site's `package.json`, as core does), for a local `./…` theme, that path from the site root — and, when it is a regular file, returns no entry. Without a `Sitemap:` line the warning names the theme file and asks for a copy in the site's assets folder with the line added, since a package is not the site's to edit. The site's file still wins over the theme's (only it is checked then). A theme package that cannot be resolved counts as no theme file: core has already failed the build for a `theme:` it cannot resolve.
 
@@ -225,7 +225,7 @@ Each slice is one step of the issue plan (`plans/issues/01a1260d-…-sitemap-xml
 
 - [x] D6, including the site-file check against `app.folders.assets` and the missing-`Sitemap:` warning.
 
-**Done 2026-10-11.** `src/robots.js` (`robotsTxt`, `hasSitemapLine`, `siteRobotsPath`, `robotsAssets`). The sitemap URL in the pointer is `joinUrl(origin, basePath, '/' + output)`, the same join as the page URLs. The site's file counts only when it is a regular file (a directory named `robots.txt` is ignored, so the read cannot crash the build); `.neraignore` is not consulted, so an ignored site file still suppresses the generated one. `Sitemap:` matching allows whitespace before the colon (`/^sitemap\s*:/im`). `output: robots.txt` is rejected by the config, because the sitemap would collide with the pointer in the cache and in `public/`.
+**Done 2026-10-11.** `src/robots.js` (`robotsTxt`, `hasSitemapLine`, `siteRobotsPath`, `robotsAssets`). The sitemap URL in the pointer is `joinUrl(origin, basePath, '/' + output)`, the same join as the page URLs. The site's file counts only when it is a regular file (a directory named `robots.txt` is ignored, so the read cannot crash the build); `.neraignore` was not consulted then, so an ignored site file still suppressed the generated one — fixed in slice 12. `Sitemap:` matching allows whitespace before the colon (`/^sitemap\s*:/im`). `output: robots.txt` is rejected by the config, because the sitemap would collide with the pointer in the cache and in `public/`.
 
 ### Slice 6 — Integration test through core `run()`
 
@@ -306,6 +306,12 @@ Not run by the session (never publish or push). In order:
 - [x] `../nera-plugin-canonical-links` 2.2.3: canonical and alternate hrefs are `origin + app.basePath + meta.href` (O3 resolved); this plugin resolves canonical-links alternates in both URL forms. Lands in the unpublished 1.0.0 here; canonical-links 2.2.3 is committed in its own repo, tag and push handed over.
 
 **Done 2026-10-11.** `getBaseUrl` in canonical-links' `index.js` (a trailing slash on `basePath` trimmed, a missing key or `''` leaves the origin as is, so a root-served site is byte-identical); `pairByAlternateLinks` in `src/sitemap.js` maps both `origin + href` and `origin + basePath + href` to the listed page.
+
+### Slice 12 — `.neraignore` in the `robots.txt` lookup, duplicate-identifier warning
+
+- [x] A site `robots.txt` excluded by `.neraignore` no longer suppresses the generated pointer (D6 amended); two translated pages sharing an identifier and a language warn (D5 amended). Post-triage carry-forwards, still in the unpublished 1.0.0.
+
+**Done 2026-10-11.** `readIgnoreList` and `isIgnored` in `src/robots.js` reproduce core's rule (a file at the assets root can only match the pattern `robots.txt` itself; `robots` does not match it); with the site file ignored the theme's file, when there is one, counts as before. `pairByIdentifier` in `src/sitemap.js` reports through the new `onWarning` option of `buildSitemap`/`collectAlternates`, which `getAssets` sets to the plugin's `warn`; the builder stays free of console output.
 
 ---
 

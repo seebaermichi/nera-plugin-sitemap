@@ -74,8 +74,11 @@ const nonEmptyString = (value) => typeof value === 'string' && value !== ''
 // pairs them by its `page_identifier`): every listed page with a language
 // and the same identifier value is one group. Within a group the first page
 // per language in href order wins, so a duplicate cannot make the output
-// depend on input order.
-function pairByIdentifier(listed, identifier, langOf) {
+// depend on input order. A duplicate in a group that has translations is
+// reported through `onWarning`, once per identifier value and language; in
+// a one-language group it changes nothing, so a monolingual site never
+// hears about it.
+function pairByIdentifier(listed, identifier, langOf, onWarning) {
     const groups = new Map()
     const keyOf = new Map()
     for (const [href, meta] of listed) {
@@ -85,11 +88,27 @@ function pairByIdentifier(listed, identifier, langOf) {
         const key = String(value)
         if (!groups.has(key)) groups.set(key, new Map())
         const group = groups.get(key)
-        if (!group.has(lang)) group.set(lang, href)
+        if (!group.has(lang)) group.set(lang, [])
+        group.get(lang).push(href)
         keyOf.set(href, key)
     }
+    for (const [key, group] of groups) {
+        if (group.size < 2) continue
+        for (const [lang, hrefs] of group) {
+            if (hrefs.length < 2) continue
+            onWarning(
+                `${hrefs.length} pages share ${identifier} "${key}" in language "${lang}": ` +
+                    `${hrefs.join(', ')}. The hreflang alternates use ${hrefs[0]} for ` +
+                    `"${lang}"; give the others their own ${identifier}.`
+            )
+        }
+    }
+    const firsts = new Map()
+    for (const [key, group] of groups) {
+        firsts.set(key, new Map([...group].map(([lang, hrefs]) => [lang, hrefs[0]])))
+    }
     const translations = new Map()
-    for (const [href, key] of keyOf) translations.set(href, groups.get(key))
+    for (const [href, key] of keyOf) translations.set(href, firsts.get(key))
     return translations
 }
 
@@ -128,19 +147,28 @@ function pairByAlternateLinks(listed, origin, basePath, langOf) {
  * Translations come from `meta.alternateLinks` when plugin-canonical-links
  * filled it for any listed page, else from pairing pages by the frontmatter
  * key `identifier`. A page's language is `meta.lang`, else the site's `lang`.
+ * Two translated pages sharing an identifier and a language are reported
+ * through `onWarning` (D5); the first in href order is kept.
  *
  * @param {Map<string, object>} listed listed pages, href → meta, in href order
- * @param {{ origin: string, basePath?: string, lang?: string, identifier?: string }} options
+ * @param {{ origin: string, basePath?: string, lang?: string, identifier?: string,
+ *   onWarning?: (message: string) => void }} options
  * @returns {Map<string, Array<{ hreflang: string, href: string }>>}
  */
-export function collectAlternates(listed, { origin, basePath = '', lang, identifier = 'slug' }) {
+export function collectAlternates(listed, {
+    origin,
+    basePath = '',
+    lang,
+    identifier = 'slug',
+    onWarning = () => {},
+}) {
     const langOf = (meta) =>
         (nonEmptyString(meta.lang) && meta.lang) || (nonEmptyString(lang) && lang) || ''
     const fromLinks = [...listed.values()]
         .some((meta) => Array.isArray(meta.alternateLinks) && meta.alternateLinks.length > 0)
     const translations = fromLinks
         ? pairByAlternateLinks(listed, origin, basePath || '', langOf)
-        : pairByIdentifier(listed, identifier, langOf)
+        : pairByIdentifier(listed, identifier, langOf, onWarning)
 
     const alternates = new Map()
     for (const [href, group] of translations) {
@@ -161,10 +189,11 @@ export function collectAlternates(listed, { origin, basePath = '', lang, identif
  *
  * @param {Array<{ meta: object }>} pagesData core's page data
  * @param {{ origin: string, basePath?: string, robots?: string, exclude?: string[],
- *   lang?: string, alternates?: 'auto' | false, identifier?: string }} options
+ *   lang?: string, alternates?: 'auto' | false, identifier?: string,
+ *   onWarning?: (message: string) => void }} options
  *   `origin` already trimmed (see `trimOrigin`), `robots` and `lang` the
  *   site-wide `app.robots`/`app.lang` defaults, `identifier` the frontmatter
- *   key pairing translations
+ *   key pairing translations, `onWarning` told about duplicate translations
  * @returns {string}
  */
 export function buildSitemap(pagesData, {
@@ -175,6 +204,7 @@ export function buildSitemap(pagesData, {
     lang,
     alternates = 'auto',
     identifier = 'slug',
+    onWarning,
 }) {
     const byHref = new Map()
     for (const page of pagesData || []) {
@@ -186,7 +216,7 @@ export function buildSitemap(pagesData, {
     const listed = new Map([...byHref].sort(([a], [b]) => byString(a, b)))
     const alternatesOf = alternates === false
         ? new Map()
-        : collectAlternates(listed, { origin, basePath, lang, identifier })
+        : collectAlternates(listed, { origin, basePath, lang, identifier, onWarning })
     const url = (href) => escapeXml(joinUrl(origin, basePath, href))
 
     const body = []

@@ -1,7 +1,15 @@
 import fs from 'fs'
 import path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { hasSitemapLine, robotsAssets, robotsTxt, siteRobotsPath, themeRobotsPath } from '../src/robots.js'
+import {
+    hasSitemapLine,
+    isIgnored,
+    readIgnoreList,
+    robotsAssets,
+    robotsTxt,
+    siteRobotsPath,
+    themeRobotsPath,
+} from '../src/robots.js'
 import { tempDir, write } from './helpers.js'
 
 const SITEMAP_URL = 'https://example.com/sitemap.xml'
@@ -98,6 +106,37 @@ describe('themeRobotsPath', () => {
     })
 })
 
+describe('readIgnoreList', () => {
+    it('is empty without a .neraignore', () => {
+        expect(readIgnoreList(cwd)).toEqual([])
+    })
+
+    it('reads trimmed, non-blank lines from the site root, not from assets/', () => {
+        write(path.join(cwd, '.neraignore'), 'robots.txt\r\n\n  drafts  \n')
+        write(path.join(cwd, 'assets/.neraignore'), 'other\n')
+        expect(readIgnoreList(cwd)).toEqual(['robots.txt', 'drafts'])
+    })
+})
+
+describe('isIgnored', () => {
+    const root = path.join('/site', 'assets')
+
+    it('matches an exact path relative to the assets folder', () => {
+        expect(isIgnored(['robots.txt'], path.join(root, 'robots.txt'), root)).toBe(true)
+        expect(isIgnored(['assets/robots.txt'], path.join(root, 'robots.txt'), root)).toBe(false)
+    })
+
+    it('matches a directory prefix only at a / boundary', () => {
+        expect(isIgnored(['seo'], path.join(root, 'seo/robots.txt'), root)).toBe(true)
+        expect(isIgnored(['robots'], path.join(root, 'robots.txt'), root)).toBe(false)
+        expect(isIgnored(['robots.tx'], path.join(root, 'robots.txt'), root)).toBe(false)
+    })
+
+    it('ignores nothing with an empty list', () => {
+        expect(isIgnored([], path.join(root, 'robots.txt'), root)).toBe(false)
+    })
+})
+
 describe('robotsAssets', () => {
     it('writes the generated file to the cache and returns its entry', () => {
         const entries = robotsAssets({ cwd, app: {}, sitemapUrl: SITEMAP_URL, cacheDir })
@@ -135,6 +174,50 @@ describe('robotsAssets', () => {
         write(path.join(cwd, 'assets/robots.txt'), 'Sitemap: https://example.com/sitemap.xml\n')
         expect(robotsAssets({ cwd, app: { folders: { assets: './static' } }, sitemapUrl: SITEMAP_URL, cacheDir }))
             .toEqual([{ from: path.join(cacheDir, 'robots.txt'), to: 'robots.txt' }])
+    })
+
+    it('generates the file when .neraignore excludes the site\'s robots.txt', () => {
+        write(path.join(cwd, 'assets/robots.txt'), 'User-agent: *\nDisallow:\n')
+        write(path.join(cwd, '.neraignore'), 'images\nrobots.txt\n')
+        expect(robotsAssets({ cwd, app: {}, sitemapUrl: SITEMAP_URL, cacheDir }))
+            .toEqual([{ from: path.join(cacheDir, 'robots.txt'), to: 'robots.txt' }])
+        expect(warn).not.toHaveBeenCalled()
+    })
+
+    it('reads .neraignore from the site root for a site with app.folders.assets', () => {
+        const app = { folders: { assets: './theme/assets' } }
+        write(path.join(cwd, 'theme/assets/robots.txt'), 'User-agent: *\nDisallow:\n')
+        write(path.join(cwd, '.neraignore'), 'robots.txt\n')
+        expect(robotsAssets({ cwd, app, sitemapUrl: SITEMAP_URL, cacheDir }))
+            .toEqual([{ from: path.join(cacheDir, 'robots.txt'), to: 'robots.txt' }])
+        expect(warn).not.toHaveBeenCalled()
+    })
+
+    it('keeps the site\'s robots.txt when no .neraignore pattern matches it', () => {
+        write(path.join(cwd, 'assets/robots.txt'), 'User-agent: *\nDisallow:\n')
+        write(path.join(cwd, '.neraignore'), 'robots\nrobots.txt/\nassets/robots.txt\n')
+        expect(robotsAssets({ cwd, app: {}, sitemapUrl: SITEMAP_URL, cacheDir })).toEqual([])
+        expect(warn).toHaveBeenCalledTimes(1)
+    })
+
+    it('falls back to the theme\'s robots.txt when the site\'s is ignored', () => {
+        installTheme('@acme/theme-x', { 'assets/robots.txt': 'Sitemap: https://example.com/sitemap.xml\n' })
+        write(path.join(cwd, 'assets/robots.txt'), 'User-agent: *\nDisallow:\n')
+        write(path.join(cwd, '.neraignore'), 'robots.txt\n')
+        expect(robotsAssets({ cwd, app: themeApp('@acme/theme-x'), sitemapUrl: SITEMAP_URL, cacheDir })).toEqual([])
+        expect(warn).not.toHaveBeenCalled()
+    })
+
+    it('asks to un-ignore the site copy when the theme\'s robots.txt has no Sitemap line', () => {
+        installTheme('@acme/theme-x', { 'assets/robots.txt': 'User-agent: *\nDisallow:\n' })
+        write(path.join(cwd, '.neraignore'), 'robots.txt\n')
+        expect(robotsAssets({ cwd, app: themeApp('@acme/theme-x'), sitemapUrl: SITEMAP_URL, cacheDir })).toEqual([])
+        expect(warn).toHaveBeenCalledWith(
+            '⚠️ plugin-sitemap: node_modules/@acme/theme-x/assets/robots.txt has no Sitemap line, ' +
+                'so crawlers reading it will not find the sitemap. ' +
+                'Copy it to assets/robots.txt (and remove it from .neraignore) and add: ' +
+                'Sitemap: https://example.com/sitemap.xml'
+        )
     })
 
     it('treats a robots.txt directory as no site file', () => {

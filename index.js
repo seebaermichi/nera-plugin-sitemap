@@ -43,6 +43,7 @@ export function getAssets({ app = {}, pagesData = [] } = {}) {
         lang: app.lang,
         alternates: config.alternates,
         identifier: config.alternates_identifier,
+        onWarning: warn,
     })
     const limitWarning = protocolLimitWarning(xml)
     if (limitWarning) warn(limitWarning)

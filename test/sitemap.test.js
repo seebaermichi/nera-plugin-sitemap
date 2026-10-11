@@ -317,6 +317,89 @@ describe('hreflang alternates', () => {
         expect(xml).toBe(buildSitemap([...pages].reverse(), { origin: ORIGIN }))
     })
 
+    describe('duplicate identifiers', () => {
+        const collect = (entries, options = {}) => {
+            const warnings = []
+            collectAlternates(new Map(entries), {
+                origin: ORIGIN,
+                onWarning: (message) => warnings.push(message),
+                ...options,
+            })
+            return warnings
+        }
+
+        it('warns once per identifier and language, naming every page, first one kept', () => {
+            expect(collect([
+                ['/a.html', { lang: 'en', slug: 'x' }],
+                ['/b.html', { lang: 'en', slug: 'x' }],
+                ['/c.html', { lang: 'en', slug: 'x' }],
+                ['/de/x.html', { lang: 'de', slug: 'x' }],
+                ['/de/y.html', { lang: 'de', slug: 'y' }],
+                ['/de/z.html', { lang: 'de', slug: 'y' }],
+                ['/y.html', { lang: 'en', slug: 'y' }],
+            ])).toEqual([
+                '3 pages share slug "x" in language "en": /a.html, /b.html, /c.html. ' +
+                    'The hreflang alternates use /a.html for "en"; give the others their own slug.',
+                '2 pages share slug "y" in language "de": /de/y.html, /de/z.html. ' +
+                    'The hreflang alternates use /de/y.html for "de"; give the others their own slug.',
+            ])
+        })
+
+        it('stays quiet for a normal translation group', () => {
+            expect(collect([
+                ['/a.html', { lang: 'en', slug: 'a' }],
+                ['/de/a.html', { lang: 'de', slug: 'a' }],
+                ['/es/a.html', { lang: 'es', slug: 'a' }],
+            ])).toEqual([])
+        })
+
+        it('stays quiet on a monolingual site and for pages without the identifier', () => {
+            expect(collect([
+                ['/a.html', { slug: 'x' }],
+                ['/b.html', { slug: 'x' }],
+                ['/c.html', { lang: 'en' }],
+                ['/d.html', { lang: 'en' }],
+            ], { lang: 'en' })).toEqual([])
+            expect(collect([
+                ['/a.html', { lang: 'en' }],
+                ['/b.html', { lang: 'en' }],
+                ['/de/a.html', { lang: 'de' }],
+            ])).toEqual([])
+        })
+
+        it('names the configured identifier', () => {
+            expect(collect([
+                ['/a.html', { lang: 'en', key: 1 }],
+                ['/b.html', { lang: 'en', key: 1 }],
+                ['/de/a.html', { lang: 'de', key: 1 }],
+            ], { identifier: 'key' })).toEqual([
+                '2 pages share key "1" in language "en": /a.html, /b.html. ' +
+                    'The hreflang alternates use /a.html for "en"; give the others their own key.',
+            ])
+        })
+
+        it('never warns when canonical-links pairs the pages', () => {
+            const links = [{ href: `${ORIGIN}/de/a.html`, hreflang: 'de' }]
+            expect(collect([
+                ['/a.html', { lang: 'en', slug: 'x', alternateLinks: links }],
+                ['/b.html', { lang: 'en', slug: 'x', alternateLinks: links }],
+                ['/de/a.html', { lang: 'de', slug: 'x' }],
+            ])).toEqual([])
+        })
+
+        it('reaches buildSitemap\'s onWarning and leaves the output unchanged', () => {
+            const pages = [
+                page({ href: '/b.html', lang: 'en', slug: 'x' }),
+                page({ href: '/a.html', lang: 'en', slug: 'x' }),
+                page({ href: '/de/x.html', lang: 'de', slug: 'x' }),
+            ]
+            const warnings = []
+            const xml = buildSitemap(pages, { origin: ORIGIN, onWarning: (m) => warnings.push(m) })
+            expect(warnings).toHaveLength(1)
+            expect(xml).toBe(buildSitemap(pages, { origin: ORIGIN }))
+        })
+    })
+
     it('pairs by the configured identifier', () => {
         const xml = buildSitemap([
             page({ href: '/a.html', lang: 'en', key: 1 }),

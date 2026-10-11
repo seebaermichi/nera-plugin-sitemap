@@ -136,3 +136,15 @@ Publishing, pushing and the catalog commits in other repos are handed over, not 
 - **Review hardest:** sites without `base_path` produce byte-identical output; commit lands in that repo, not this one
 - **Risks:** classification — a changed canonical URL on `base_path` sites is a bugfix (patch), state that in the CHANGELOG
 - **Walkthrough:** none
+
+### Step 12 — `.neraignore` in the robots.txt lookup and a duplicate-identifier warning (post-triage carry-forwards) — ✅ done
+
+- **Goal:** two small fixes the user asked for before resolving, both still in the unpublished 1.0.0:
+    - `src/robots.js` — a site `assets/robots.txt` that the site's `.neraignore` excludes no longer counts as "the site ships one", so the generated pointer is written. Match core's rule (`../generator/src/render.js` `getIgnoredFiles`/`ignoreFiles`: `.neraignore` at the site root, one pattern per line, relative to the assets folder, exact path or a directory prefix). Check against `../generator/src/index.js:60-80` whether core filters the **theme** layer with the site's `.neraignore` and do the same for the theme file, nothing more. Test: an ignored site file → generated `robots.txt` in `public/` and no "missing Sitemap:" warning; an ignored directory prefix covering it, likewise; a non-matching pattern still keeps the site's file.
+    - `src/sitemap.js` `pairByIdentifier` — two listed pages with the same identifier value **and** the same language trigger one build warning naming the identifier value, the language and both hrefs; the output stays as it is today (first page wins, deterministic). Default: warn, not drop. Test: the warning fires once per clash and not for a normal translation group; canonical-links pairing is untouched.
+    - ROADMAP: D6 and slice 5's `.neraignore` sentence amended, D5 notes the warning, a `### Slice 12` with its **Done** note; CHANGELOG 1.0.0 bullets amended (robots.txt and hreflang lines); README where it describes either behaviour.
+- **Files:** `src/robots.js`, `src/sitemap.js` (and `index.js` only if the warning has to be passed to `warn` there), `test/robots.test.js`, `test/sitemap.test.js` (or the integration test for the `.neraignore` case), `ROADMAP.md`, `CHANGELOG.md`, `README.md`
+- **Verify:** `npx vitest run && npm run lint` — green; no `nera-sitemap-*` dirs left in `$TMPDIR` by the run
+- **Review hardest:** the ignore matching is exactly core's (path relative to the assets folder, POSIX separators, prefix needs a `/` boundary — `robots` must not match `robots.txt`); a missing `.neraignore` changes nothing; the warning cannot fire for a single-language site or for pages without the identifier
+- **Risks:** the `.neraignore` path — core reads it from the site root (`'.'`), not from `assets/`; get this wrong and the fix silently does nothing
+- **Walkthrough:** none

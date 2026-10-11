@@ -40,13 +40,15 @@ describe('plugin hooks', () => {
 })
 
 describe('getAssets', () => {
-    it('writes the sitemap to the cache and returns the entry for public/', () => {
+    it('writes the sitemap and robots.txt to the cache and returns their entries for public/', () => {
         const result = plugin.getAssets({
             app: { origin: 'https://example.com/' },
             pagesData: [page('/b.html'), page('/a.html', { date: '2026-10-01' }), { meta: { href: '/nolayout.html' } }],
         })
         const from = path.join(cwd, '.nera-cache/sitemap/sitemap.xml')
-        expect(result).toEqual([{ from, to: 'sitemap.xml' }])
+        const robots = path.join(cwd, '.nera-cache/sitemap/robots.txt')
+        expect(result).toEqual([{ from, to: 'sitemap.xml' }, { from: robots, to: 'robots.txt' }])
+        expect(fs.readFileSync(robots, 'utf-8')).toContain('Sitemap: https://example.com/sitemap.xml\n')
         expect(fs.readFileSync(from, 'utf-8')).toBe([
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
@@ -64,17 +66,19 @@ describe('getAssets', () => {
     })
 
     it('works without any config file (all defaults)', () => {
-        const [entry] = plugin.getAssets({ app: { origin: 'https://example.com' }, pagesData: [page('/index.html')] })
+        const [entry, robots] = plugin.getAssets({ app: { origin: 'https://example.com' }, pagesData: [page('/index.html')] })
         expect(entry.to).toBe('sitemap.xml')
+        expect(robots.to).toBe('robots.txt')
         expect(fs.readFileSync(entry.from, 'utf-8')).toContain('<loc>https://example.com/index.html</loc>')
     })
 
     it('applies basePath, app.robots, exclude and output from the config', () => {
         write(path.join(cwd, 'config/sitemap.yaml'), 'output: seo/map.xml\nexclude: [/drafts/*]\n')
-        const [entry] = plugin.getAssets({
+        const [entry, robots] = plugin.getAssets({
             app: { origin: 'https://example.com', basePath: '/sub', robots: 'index, follow' },
             pagesData: [page('/index.html'), page('/drafts/x.html'), page('/hidden.html', { robots: 'noindex' })],
         })
+        expect(fs.readFileSync(robots.from, 'utf-8')).toContain('Sitemap: https://example.com/sub/seo/map.xml\n')
         expect(entry).toEqual({ from: path.join(cwd, '.nera-cache/sitemap/seo/map.xml'), to: 'seo/map.xml' })
         const xml = fs.readFileSync(entry.from, 'utf-8')
         expect(xml).toContain('<loc>https://example.com/sub/index.html</loc>')
@@ -102,6 +106,29 @@ describe('getAssets', () => {
         expect(warn).toHaveBeenCalledTimes(1)
         expect(warn.mock.calls[0][0]).toMatch(/plugin-sitemap: no site origin.*config\/app\.yaml.*canonical-links\.yaml/)
         expect(fs.existsSync(path.join(cwd, '.nera-cache'))).toBe(false)
+    })
+
+    it('returns no robots.txt entry with robots: false in the config', () => {
+        write(path.join(cwd, 'config/sitemap.yaml'), 'robots: false\n')
+        const entries = plugin.getAssets({ app: { origin: 'https://example.com' }, pagesData: [page('/index.html')] })
+        expect(entries.map((entry) => entry.to)).toEqual(['sitemap.xml'])
+        expect(fs.existsSync(path.join(cwd, '.nera-cache/sitemap/robots.txt'))).toBe(false)
+    })
+
+    it('leaves the site\'s own robots.txt alone and warns when it lacks a Sitemap line', () => {
+        write(path.join(cwd, 'theme/assets/robots.txt'), 'User-agent: *\nDisallow: /private/\n')
+        const entries = plugin.getAssets({
+            app: { origin: 'https://example.com', basePath: '/sub', folders: { assets: './theme/assets' } },
+            pagesData: [page('/index.html')],
+        })
+        expect(entries.map((entry) => entry.to)).toEqual(['sitemap.xml'])
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(warn.mock.calls[0][0]).toMatch(/theme\/assets\/robots\.txt has no Sitemap line.*Add: Sitemap: https:\/\/example\.com\/sub\/sitemap\.xml$/)
+    })
+
+    it('writes no robots.txt without an origin', () => {
+        expect(plugin.getAssets({ app: {}, pagesData: [page('/index.html')] })).toEqual([])
+        expect(fs.existsSync(path.join(cwd, '.nera-cache/sitemap/robots.txt'))).toBe(false)
     })
 
     it('returns an array when called without arguments', () => {

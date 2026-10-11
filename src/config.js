@@ -1,5 +1,6 @@
 import path from 'path'
 import { getConfig } from '@nera-static/plugin-utils'
+import { ROBOTS_FILE } from './robots.js'
 import { trimOrigin } from './urls.js'
 import { warn } from './warn.js'
 
@@ -51,8 +52,15 @@ function readExclude(value, fallback) {
     return patterns
 }
 
+// `robots.txt` is the pointer's own path (D6); a sitemap there would collide
+// with it in the cache and in `public/`.
+const readOutput = (value, fallback) => {
+    const output = safeOutput(value)
+    return output && output !== ROBOTS_FILE ? output : bad('output', value, fallback)
+}
+
 const readers = {
-    output: (value, fallback) => safeOutput(value) ?? bad('output', value, fallback),
+    output: readOutput,
     exclude: readExclude,
     // Anything but `false` keeps the pointer on (ROADMAP "Configuration").
     robots: (value) => value !== false,

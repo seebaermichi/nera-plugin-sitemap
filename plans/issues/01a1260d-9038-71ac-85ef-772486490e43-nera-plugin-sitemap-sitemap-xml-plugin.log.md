@@ -336,3 +336,102 @@ Goal met (getAssets reads config with per-key fallbacks, resolves origin, writes
 ## Step 4 — approved (2026-10-11)
 
 snagio: ticked
+commit: a1d4a4e
+
+## Step 5 — started (2026-10-11)
+
+base_sha: a1d4a4e0886fbe4eeadf0f44849bc9d1c22ffbe1
+mode: fresh
+
+## Step 5 — implemented (2026-10-11)
+
+base_sha: a1d4a4e
+
+### Changed
+- `src/robots.js` — new: `robotsTxt` (D6 content), `hasSitemapLine` (`/^sitemap\s*:/im`), `siteRobotsPath` (`app.folders.assets` || `./assets`, from the site root), `robotsAssets` (site file present → `[]` + one warning without a `Sitemap:` line; else writes `.nera-cache/sitemap/robots.txt` and returns `{ from, to: 'robots.txt' }`)
+- `index.js` — `getAssets` appends the robots entries unless `robots: false`; the pointer URL is `joinUrl(origin, app.basePath, '/' + output)`, the same join as page URLs; header comment updated
+- `src/config.js` — `output: robots.txt` (after normalization) is rejected with the usual warning, since sitemap and pointer would collide in the cache and in `public/` (a collision this step creates, so handled here)
+- `test/robots.test.js` — new: content, Sitemap-line matching (comments, mid-line mentions, CRLF), assets-folder resolution incl. `theme/assets` and a non-default folder ignoring `./assets`, the site file never rewritten, warning text verbatim, a `robots.txt` directory
+- `test/index.test.js` — hook returns both entries; basePath + custom output in the pointer; `robots: false`; site file in `app.folders.assets` → no entry + warning with basePath URL; no origin → no robots.txt
+- `test/config.test.js` — `robots.txt` output collision falls back; `seo/robots.txt` still allowed
+- `ROADMAP.md` — slice 5 ticked with a Done note (choices below), config table notes the `robots.txt` rejection
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none
+
+### Verification
+```
+npx vitest run → Test Files  6 passed (6) / Tests  81 passed (81)
+npm run lint → eslint . (no output, exit 0)
+```
+
+### Self-critique
+- Site file detection uses `isFile` rather than `existsSync`: a directory named `robots.txt` would otherwise crash the build on `readFileSync` (EISDIR). Such a site then gets the generated file, and core's copy of the site's directory probably clashes. Exotic, so I kept the cheap guard.
+- `.neraignore` is not consulted: a site file the site ignores still suppresses the generated one (written into the ROADMAP). Reading `.neraignore` would duplicate core's matching for a corner case.
+- Rejecting `output: robots.txt` even with `robots: false` keeps the rule simple and the output path independent of another key.
+- A stale `.nera-cache/sitemap/robots.txt` from an earlier build stays when the site later adds its own file. It is harmless (never returned), but it is clutter in the cache.
+- Least sure: `hasSitemapLine` allows whitespace before the colon. That is more lenient than "at line start" in D6, though crawlers parse it the same way.
+
+### Pressure-test questions for the reviewer
+1. Can any path make the plugin return a `robots.txt` entry while the site's own file exists in core's resolved assets folder (theme probe, custom `folders.assets`)?
+2. Is the pointer URL right with basePath + nested `output` (`https://example.com/sub/seo/map.xml`)? It is asserted in `test/index.test.js`.
+3. Should the warning also fire with `robots: false`? I followed D6 ("when … `robots` is not `false`"), so it does not.
+
+#### UI walkthrough — generated sitemap + robots.txt pointer (short pass)
+Throwaway site from `nera new` (scaffold has `theme/`, so assets = `./theme/assets`), local plugin installed, `origin: https://wt-5b2e.example.com/`, `nera serve --port 3124`.
+
+| control | label promises | nonce | observed after | resulting URL | verdict |
+|---|---|---|---|---|---|
+| `/robots.txt` (no site file) | generated pointer to the sitemap | wt-5b2e | `User-agent: * Allow: / Sitemap: https://wt-5b2e.example.com/sitemap.xml` | /robots.txt | ✓ |
+| `/sitemap.xml` | sitemaps.org urlset with absolute URLs | wt-5b2e | `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`, `<loc>https://wt-5b2e.example.com/index.html</loc>` | /sitemap.xml | ✓ |
+| `/robots.txt` after adding `theme/assets/robots.txt` without Sitemap, rebuild | site file wins, warning names the line | WT-c41f | served `User-agent: * Disallow: /WT-c41f/`; build log: `⚠️ plugin-sitemap: theme/assets/robots.txt has no Sitemap line, so crawlers reading it will not find the sitemap. Add: Sitemap: https://wt-5b2e.example.com/sitemap.xml` | /robots.txt | ✓ |
+
+Console: `[ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3124/favicon.ico:0` (scaffold has no favicon; unrelated)
+Divergence: none — the scaffold resolves assets to `theme/assets`, which is exactly why the `app.folders.assets` lookup matters.
+
+## Step 5 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- none
+
+### Fixed alongside
+- none
+
+### Carry forward
+- design · S · `src/robots.js:41` — an installed npm theme package (`@nera-static/theme-*`) that ships `assets/robots.txt` gets overridden by the generated pointer, because core copies theme → plugins → site (`generator/src/index.js:69-76`) and the plugin checks only `app.folders.assets`. D6 covers just the site's own file, so whether a theme's robots.txt counts as deliberate needs a decision (e.g. also check `theme.assetsRoot`). — why not now: decision
+
+### Checked
+goal (D6 entry, `robots: false`, site file never overridden, warning) · `npx vitest run` → 6 files / 81 tests passed, `npm run lint` → exit 0, no output · Non-negotiables, Framework correctness, Tests & hygiene · self-critique: `isFile` guard (tested), `.neraignore` not consulted (in ROADMAP), `output: robots.txt` rejected even with `robots: false` (tested, also in a real build), stale cache file harmless (never returned), `\s*:` leniency (written into ROADMAP) · core's `computeFolders` (`generator/src/core.js:86-112`) puts the theme probe into `app.folders.assets` before plugins run, so reading it is correct · full walkthrough done
+
+### Answers to the pressure-test questions
+1. Not for the site's assets folder. Core resolves `app.folders.assets` (custom value, else `./theme/assets` when `theme/` exists, else `./assets`) in `computeFolders` before plugins run, and `siteRobotsPath` resolves exactly that from cwd. Real build: `theme/assets/robots.txt` present → no entry, site file served (scenarios B/C below). Even if the plugin did return an entry, core copies site assets last, so the site would still win. The one gap is an npm theme package's `assets/robots.txt`, which comes before plugin assets in the copy order (carried forward).
+2. Yes. `test/index.test.js` asserts `Sitemap: https://example.com/sub/seo/map.xml`, and a real build with `base_path: /sub` + `output: seo/map.xml` wrote `Sitemap: https://rv-7d1a.example.com/sub/seo/map.xml`. Core's base_path rewrite of copied assets did not double the prefix.
+3. No. D6 makes the whole pointer conditional on `robots` not being `false`, and `robots: false` means the site wants no robots.txt involvement from the plugin. Keep it as implemented.
+
+#### UI walkthrough — generated sitemap + robots.txt pointer (full pass)
+Throwaway site from `nera new` (has `theme/`), local plugin installed, `origin: https://rv-7d1a.example.com/`, `base_path: /sub`. `nera build` for each state, then `nera serve --port 3124` + Playwright on the final state.
+
+| control | label promises | nonce | observed after | resulting URL | verdict |
+|---|---|---|---|---|---|
+| `/robots.txt`, no site file (A, browser) | generated pointer incl. basePath | rv-7d1a | `User-agent: * Allow: / Sitemap: https://rv-7d1a.example.com/sub/sitemap.xml` | /robots.txt | ✓ |
+| `/sitemap.xml` (browser) | sitemaps.org urlset, absolute URLs | rv-7d1a | `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`, `<loc>https://rv-7d1a.example.com/sub/index.html</loc>` | /sitemap.xml | ✓ |
+| site `theme/assets/robots.txt` with Sitemap line (B) | site file wins, no warning | RV-a90c | `public/robots.txt` = `Disallow: /RV-a90c/` + its Sitemap line; no ⚠️ in build log | /robots.txt | ✓ |
+| site file without Sitemap line (C) | site file wins, one warning with the line to add | RV-b31e | `Disallow: /RV-b31e/` served; `⚠️ plugin-sitemap: theme/assets/robots.txt has no Sitemap line, so crawlers reading it will not find the sitemap. Add: Sitemap: https://rv-7d1a.example.com/sub/sitemap.xml` | /robots.txt | ✓ |
+| `robots: false` + `output: seo/map.xml` (D) | no robots.txt | — | `public/robots.txt` absent, `public/seo/map.xml` present | — | ✓ |
+| `output: robots.txt` (E) | rejected, default used | — | `⚠️ plugin-sitemap: config/sitemap.yaml: invalid output "robots.txt", using "sitemap.xml"`; robots.txt is the pointer, sitemap.xml exists | /robots.txt | ✓ |
+| `output: seo/map.xml` (F) | pointer follows output | — | `Sitemap: https://rv-7d1a.example.com/sub/seo/map.xml` | /robots.txt | ✓ |
+
+Console: `[ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3124/favicon.ico:0` (the scaffold has no favicon, unrelated)
+Divergence: none. As the source predicted, core's base_path asset rewrite leaves robots.txt alone (the `/sub` prefix shows up once).
+
+## Step 5 — approved (2026-10-11)
+
+snagio: ticked

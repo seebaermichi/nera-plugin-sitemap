@@ -74,7 +74,7 @@ Publishing, pushing and the catalog commits in other repos are handed over, not 
 - **Risks:** cwd-relative paths in tests; canonical-links config read when its file is absent
 - **Walkthrough:** short (generated sitemap)
 
-### Step 5 — robots.txt pointer — ⬜ todo
+### Step 5 — robots.txt pointer — ✅ done
 
 - **Goal:** D6: a generated `robots.txt` entry unless `robots: false` or the site ships `assets/robots.txt`; a warning when the site's file has no `Sitemap:` line.
 - **Files:** `src/robots.js`, `index.js`, `test/robots.test.js`

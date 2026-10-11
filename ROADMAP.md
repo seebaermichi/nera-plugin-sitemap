@@ -144,7 +144,7 @@ robots: true
 
 | key | type | default | invalid value |
 |---|---|---|---|
-| `output` | string | `sitemap.xml` | not a string, empty, absolute, or escaping `public/` → warning, default used |
+| `output` | string | `sitemap.xml` | not a string, empty, absolute, escaping `public/`, or `robots.txt` (the pointer's path, D6) → warning, default used |
 | `exclude` | list of strings | `[]` | a single string is treated as a one-item list; non-strings dropped |
 | `robots` | boolean | `true` | anything but `false` counts as `true` |
 
@@ -198,7 +198,9 @@ Each slice is one step of the issue plan (`plans/issues/01a1260d-…-sitemap-xml
 
 ### Slice 5 — `robots.txt` pointer
 
-- [ ] D6, including the site-file check against `app.folders.assets` and the missing-`Sitemap:` warning.
+- [x] D6, including the site-file check against `app.folders.assets` and the missing-`Sitemap:` warning.
+
+**Done 2026-10-11.** `src/robots.js` (`robotsTxt`, `hasSitemapLine`, `siteRobotsPath`, `robotsAssets`). The sitemap URL in the pointer is `joinUrl(origin, basePath, '/' + output)`, the same join as the page URLs. The site's file counts only when it is a regular file (a directory named `robots.txt` is ignored, so the read cannot crash the build); `.neraignore` is not consulted, so an ignored site file still suppresses the generated one. `Sitemap:` matching allows whitespace before the colon (`/^sitemap\s*:/im`). `output: robots.txt` is rejected by the config, because the sitemap would collide with the pointer in the cache and in `public/`.
 
 ### Slice 6 — Integration test through core `run()`
 

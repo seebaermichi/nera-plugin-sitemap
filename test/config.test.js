@@ -58,6 +58,16 @@ describe('normalizeConfig', () => {
         )
     })
 
+    it('falls back to the default output when it would collide with robots.txt', () => {
+        for (const output of ['robots.txt', './robots.txt', 'a/../robots.txt']) {
+            expect(normalizeConfig({ output }).output).toBe('sitemap.xml')
+        }
+        expect(warn).toHaveBeenCalledWith(
+            '⚠️ plugin-sitemap: config/sitemap.yaml: invalid output "robots.txt", using "sitemap.xml"'
+        )
+        expect(normalizeConfig({ output: 'seo/robots.txt' }).output).toBe('seo/robots.txt')
+    })
+
     it('treats a single exclude string as a one-item list and drops non-strings', () => {
         expect(normalizeConfig({ exclude: '/drafts/*' }).exclude).toEqual(['/drafts/*'])
         expect(warn).not.toHaveBeenCalled()

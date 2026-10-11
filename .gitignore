@@ -36,3 +36,6 @@ build/
 
 # Build cache the plugin writes the sitemap into (ROADMAP D1)
 .nera-cache/
+
+# Browser-test artifacts (Playwright MCP)
+.playwright-mcp/

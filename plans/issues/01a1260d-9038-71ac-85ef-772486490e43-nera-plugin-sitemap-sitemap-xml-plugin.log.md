@@ -1007,3 +1007,29 @@ Goal (both fixes + ROADMAP D5/D6/slice 5/slice 12, CHANGELOG 1.0.0 bullets, READ
 ## Step 12 — approved (2026-10-11)
 
 snagio: ticked
+commit: 45ca7e5
+
+## Browser test (2026-10-11)
+
+- **Result:** PASSED — all 11 cases pass after step 12, including `.neraignore`d robots.txt and the duplicate-slug warning
+- **Guide:** plans/issues/browser-tests/01a1260d-9038-71ac-85ef-772486490e43-nera-plugin-sitemap-sitemap-xml-plugin.md
+- **Base URL / roles:** http://localhost:3124/ · crawler (anonymous)
+- **AC source:** plan + snapshot 2026-10-11 (AC 1, 4, 5 not browser-visible, left to the review loop)
+- **Tested by:** Claude (Playwright MCP)
+
+| TC | AC (short) | Status | Evidence |
+|---|---|---|---|
+| TC-1 | valid sitemaps.org XML, absolute URLs | PASS | 200 text/xml, 0 parse errors, urlset 0.9 ns, 6 sorted locs under the origin |
+| TC-2 | `&` escaped | PASS | source `a&amp;b.html`, parses to `a&b.html` |
+| TC-3 | percent-encoded locs | PASS | `about%20us.html`, `caf%C3%A9.html`; `new URL()` round-trips all; pages 200 |
+| TC-4 | exclusions (negative) | PASS | `sitemap: false` / `robots: noindex` pages absent, still served |
+| TC-5 | hreflang alternates | PASS | hello pair carries de + en alternates incl. itself |
+| TC-6 | no alternates for single-language (negative) | PASS | 4 single-language pages have no `xhtml:link` |
+| TC-7 | base_path on locs and alternates | PASS | 6 locs + 4 alternates under `https://example.com/sub/`, no `//` |
+| TC-8 | robots.txt pointer | PASS | `Sitemap: https://example.com/sitemap.xml` |
+| TC-9 | own robots.txt wins (negative) | PASS | own file served unchanged; build warned with the `Sitemap:` line to add |
+| TC-10 | `.neraignore`d own robots.txt → pointer | PASS | plugin pointer served, no "Add: Sitemap" warning |
+| TC-11 | duplicate slug: first wins, one warning | PASS | one warning naming both hrefs; `de` alternate = `de/hallo.html`; doc parses |
+
+### Carry forward
+- none

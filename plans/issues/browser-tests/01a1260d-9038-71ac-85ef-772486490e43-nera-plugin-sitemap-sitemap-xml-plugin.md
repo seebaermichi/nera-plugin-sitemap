@@ -3,8 +3,8 @@
 **Date:** 2026-10-11 · **Branch:** main · **Base URL:** http://localhost:3124/
 **AC source:** plan + snapshot 2026-10-11
 
-Second run, after the triage steps 8–11 (percent-encoded `<loc>`, theme `robots.txt`,
-hreflang alternates, canonical-links with `base_path`). Not browser-testable, left to
+Third run, after step 12 (`.neraignore` in the robots.txt lookup, duplicate-identifier
+warning); TC-1–TC-9 repeat the second run, TC-10 and TC-11 are new. Not browser-testable, left to
 the review loop: AC 1 (`ROADMAP.md`), AC 4 (fleet match, release readiness), AC 5
 (catalog entries prepared). A theme *package's* `robots.txt` (step 9) needs a theme
 package installed and is covered by the integration test, not here. This guide covers
@@ -20,7 +20,8 @@ AC 2 and AC 3.
   pair `pages/hello.md` (`lang: en`, `slug: hello`) and `pages/de/hello.md`
   (`lang: de`, `slug: hello`); for TC-4/TC-10 a second build with `base_path: /sub`;
   for TC-6 an own `robots.txt` in the site's assets folder (`theme/assets/` on a
-  scaffolded site) without a `Sitemap:` line.
+  scaffolded site) without a `Sitemap:` line; for TC-10 a `.neraignore` listing
+  `robots.txt`; for TC-11 a third page `pages/de/hallo.md` (`lang: de`, `slug: hello`).
 
 ## Test cases
 
@@ -33,7 +34,7 @@ AC 2 and AC 3.
 2. Expect: parsed as XML (no parse error); root `urlset` in namespace `http://www.sitemaps.org/schemas/sitemap/0.9`; every `loc` starts with `https://example.com/`; `/index.html` listed; entries sorted by href.
 
 **Expected:** a well-formed urlset listing every rendered page under the origin.
-**Evidence:** 200 text/xml, 0 parse errors, root urlset in the sitemaps.org 0.9 namespace; 6 locs under https://example.com/, sorted, index.html listed; no console errors (scaffold favicon.ico 404 only)
+**Evidence:** 200 text/xml, 0 parse errors, root urlset in the sitemaps.org 0.9 ns; 6 sorted locs under https://example.com/, index.html listed, lastmod 2026-10-01 from frontmatter; console: scaffold favicon.ico 404 only
 
 ---
 
@@ -59,7 +60,7 @@ AC 2 and AC 3.
 2. Expect: `about%20us.html` and `caf%C3%A9.html`; each loc parses with `new URL()` unchanged; opening both URLs (on localhost) returns the page.
 
 **Expected:** every `loc` is a valid RFC 3986 URL that resolves to its page.
-**Evidence:** about%20us.html and caf%C3%A9.html; new URL(loc).href === loc for all 6 locs; both pages return 200
+**Evidence:** about%20us.html and caf%C3%A9.html; new URL(loc).href === loc for all 6; every loc's page returns 200
 
 ---
 
@@ -72,7 +73,7 @@ AC 2 and AC 3.
 2. Expect: the `sitemap: false` and `robots: noindex` pages are not listed; both pages still open.
 
 **Expected:** excluded pages are built but not in the sitemap.
-**Evidence:** hidden.html (sitemap: false) and noindex.html (robots: noindex, follow) absent; both pages return 200
+**Evidence:** hidden.html and noindex.html absent from the sitemap, both pages return 200
 
 ---
 
@@ -85,7 +86,7 @@ AC 2 and AC 3.
 2. Expect: the root declares `xmlns:xhtml="http://www.w3.org/1999/xhtml"`; the `hello.html` and `de/hello.html` entries each carry two `xhtml:link rel="alternate"` (`hreflang="en"` and `hreflang="de"`, itself included) with absolute hrefs.
 
 **Expected:** each language version lists every version of the page.
-**Evidence:** root declares xmlns:xhtml; hello.html and de/hello.html each carry de + en alternates (itself included), absolute hrefs. Chrome renders the file as text, not the XML tree — normal for any sitemap with XHTML-namespace elements, parse clean
+**Evidence:** root declares xmlns:xhtml; hello.html and de/hello.html each carry de + en alternates (itself included), absolute hrefs; Chrome shows text, not the XML tree (normal with xhtml elements)
 
 ---
 
@@ -111,7 +112,7 @@ AC 2 and AC 3.
 2. Expect: every `loc` and every alternate `href` starts with `https://example.com/sub/`, no double slash; the alternates of the hello pair are still present.
 
 **Expected:** URLs carry the base path exactly once, alternates included.
-**Evidence:** base_path /sub: all 6 locs and 4 alternate hrefs start https://example.com/sub/, no double slash, alternates still present; 0 parse errors
+**Evidence:** base_path /sub: all 6 locs and 4 alternate hrefs start https://example.com/sub/, no double slash, 0 parse errors
 
 ---
 
@@ -137,6 +138,32 @@ AC 2 and AC 3.
 2. Expect: the site's own file is served unchanged; the build printed a warning naming the `Sitemap:` line to add.
 
 **Expected:** the plugin never overwrites an authored robots.txt.
-**Evidence:** theme/assets/robots.txt served unchanged (User-agent: * / Disallow: /private/); build warned 'Add: Sitemap: https://example.com/sub/sitemap.xml'
+**Evidence:** theme/assets/robots.txt served unchanged (Disallow: /private/); build warned 'Add: Sitemap: https://example.com/sub/sitemap.xml'
+
+---
+
+### TC-10 — a `.neraignore`d own robots.txt is replaced by the pointer
+
+**AC:** "A `robots.txt` pointer to the sitemap is produced (D6)" (step 12)
+**Status:** PASS
+
+1. Keep the own `robots.txt` from TC-9, add `.neraignore` with `robots.txt`, rebuild, navigate to `/robots.txt`.
+2. Expect: the plugin's pointer (`User-agent: *` / `Allow: /` / `Sitemap: <absolute sitemap url>`) is served, not the own file; no "Add: Sitemap:" warning in the build.
+
+**Expected:** an own robots.txt that never reaches `public/` does not suppress the pointer.
+**Evidence:** with .neraignore 'robots.txt': plugin pointer served (Sitemap: https://example.com/sub/sitemap.xml), no 'Add: Sitemap' warning
+
+---
+
+### TC-11 — duplicate translation identifier: first in href order wins, warning printed
+
+**AC:** "A site depending on the plugin gets a valid sitemaps.org `public/sitemap.xml` …" (step 12)
+**Status:** PASS
+
+1. Add `pages/de/hallo.md` (`lang: de`, `slug: hello`), rebuild, navigate to `/sitemap.xml`.
+2. Expect: the build printed one warning naming `slug "hello"`, language `de`, both hrefs; the `de` alternate of the hello group is `de/hallo.html` (first in href order); `de/hello.html` is still listed; the document still parses.
+
+**Expected:** a duplicate never breaks the sitemap and is reported once.
+**Evidence:** one warning: 2 pages share slug "hello" in language "de": /de/hallo.html, /de/hello.html; de alternate is de/hallo.html for all three hello pages; de/hello.html still listed; 0 parse errors
 
 ---

@@ -248,7 +248,7 @@ Not run by the session (never publish or push). In order:
 3. On npmjs.com, add the Trusted Publisher: repository `seebaermichi/nera-plugin-sitemap`, workflow `publish.yml`.
 4. Within ~2 days, a real CI release so the Trusted Publisher does not expire: a patch change with its CHANGELOG entry, `npm version patch --no-git-tag-version`, commit, then `git tag -a v1.0.1 -m v1.0.1 && git push origin main v1.0.1`.
 5. Catalog entries (below) in `generator/PLUGINS.md` and the three `nera-website` pages; `nera build` + `nera validate` in `nera-website`, then push.
-6. `nera-cli/ROADMAP-ai.md` L8: point to this ROADMAP and mark the sitemap plugin released.
+6. `nera-cli/ROADMAP-ai.md` L8: the pointer to this ROADMAP is in place (2026-10-11, uncommitted in `nera-cli`); after the publish, change its "not yet published" to the released version.
 
 `generator/PLUGINS.md` — after "Simple page list", and the heading becomes `## List of plugins (17)`:
 
@@ -303,7 +303,7 @@ Not run by the session (never publish or push). In order:
 
 ### Slice 11 — canonical-links honours `base_path`
 
-- [x] `../nera-plugin-canonical-links` 2.2.3: canonical and alternate hrefs are `origin + app.basePath + meta.href` (O3 resolved); this plugin resolves canonical-links alternates in both URL forms. Lands in the unpublished 1.0.0 here; canonical-links 2.2.3 is committed in its own repo, tag and push handed over.
+- [x] `../nera-plugin-canonical-links` 2.2.3: canonical and alternate hrefs are `origin + app.basePath + meta.href` (O3 resolved); this plugin resolves canonical-links alternates in both URL forms. Lands in the unpublished 1.0.0 here; canonical-links 2.2.3 is released (tag `v2.2.3`, on npm since 2026-10-11).
 
 **Done 2026-10-11.** `getBaseUrl` in canonical-links' `index.js` (a trailing slash on `basePath` trimmed, a missing key or `''` leaves the origin as is, so a root-served site is byte-identical); `pairByAlternateLinks` in `src/sitemap.js` maps both `origin + href` and `origin + basePath + href` to the listed page.
 

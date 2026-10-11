@@ -248,7 +248,9 @@ Not run by the session (never publish or push). In order:
 3. On npmjs.com, add the Trusted Publisher: repository `seebaermichi/nera-plugin-sitemap`, workflow `publish.yml`.
 4. Within ~2 days, a real CI release so the Trusted Publisher does not expire: a patch change with its CHANGELOG entry, `npm version patch --no-git-tag-version`, commit, then `git tag -a v1.0.1 -m v1.0.1 && git push origin main v1.0.1`.
 5. Catalog entries (below) in `generator/PLUGINS.md` and the three `nera-website` pages; `nera build` + `nera validate` in `nera-website`, then push.
-6. `nera-cli/ROADMAP-ai.md` L8: the pointer to this ROADMAP is in place (2026-10-11, uncommitted in `nera-cli`); after the publish, change its "not yet published" to the released version.
+6. `nera-cli/ROADMAP-ai.md` L8: point to this ROADMAP and record the release.
+
+**Released 2026-10-11 — the handover is complete.** github.com/seebaermichi/nera-plugin-sitemap is public and secured like the fleet (`protect-main` ruleset, secret scanning + push protection, private vulnerability reporting, Dependabot alerts, security updates and `.github/dependabot.yml`). 1.0.0 was published by hand; the `v1.0.0` tag's CI publish failed as expected (it ran before the Trusted Publisher was added). 1.0.1 (`repository.url` normalized) was published by CI via OIDC, which validated the Trusted Publisher. Catalog entries: `generator` `fddad37`, `nera-website` `6227850` (live on nera.js.org); L8 in `nera-cli` `317794d`, `9b9e0b4`.
 
 `generator/PLUGINS.md` — after "Simple page list", and the heading becomes `## List of plugins (17)`:
 
@@ -337,5 +339,5 @@ Public contract: the config keys and their defaults, the output path, the XML sh
 - [x] The repo has its own `ROADMAP.md` as the plugin's spec (L8 points to it — the pointer in `nera-cli/ROADMAP-ai.md` is part of the release handover).
 - [x] A site depending on the plugin gets a valid sitemaps.org `public/sitemap.xml` with absolute, escaped, `base_path`-aware URLs (slice 6's integration test).
 - [x] A `robots.txt` pointer to the sitemap is produced (D6).
-- [x] The package matches the fleet (CI workflows, LICENSE, README linking nera.js.org, CHANGELOG, `files`) and is ready for the 1.0.0 bootstrap publish.
+- [x] The package matches the fleet (CI workflows, LICENSE, README linking nera.js.org, CHANGELOG, `files`) and is published (1.0.0 by hand, 1.0.1 via CI OIDC, 2026-10-11).
 - [x] The PLUGINS.md and three website catalog entries are prepared for the release handover (slice 7).

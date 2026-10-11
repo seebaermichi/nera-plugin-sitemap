@@ -185,3 +185,71 @@ goal (installable, lint-clean, testable 1.0.0 scaffold with CI + lockfile) · `r
 ## Step 2 — approved (2026-10-11)
 
 snagio: ticked
+commit: 86f8939
+
+## Step 3 — started (2026-10-11)
+
+base_sha: 86f89396557a59c065cf87b97f079c73c0ab3d71
+mode: fresh
+
+## Step 3 — implemented (2026-10-11)
+
+base_sha: 86f89396557a59c065cf87b97f079c73c0ab3d71
+
+### Changed
+- `src/urls.js` — `trimOrigin`, `joinUrl` (origin + basePath + href verbatim, D2), `escapeXml` (all five chars), `matchesPattern`/`isExcluded` (`*` glob, anchored, regex chars literal, D3)
+- `src/sitemap.js` — `toLastmod`/`pickLastmod` (D4: lastmod → updatedAt → date, createdAt never; UTC-midnight Date → `YYYY-MM-DD`, other Date → ISO without ms, W3C strings verbatim, anything else dropped), `isListed` (D3: layout + string href, `sitemap: false`, `noindex` from `meta.robots || app.robots` case-insensitive, exclude), `buildSitemap` (dedup by href, plain string sort, documented XML shape, empty `<urlset>` when nothing listable)
+- `test/urls.test.js`, `test/sitemap.test.js` — 34 new unit tests (escaping, basePath, every exclusion path, junk entries, lastmod order/format, sort/dedup, determinism, multilingual without hreflang)
+- `ROADMAP.md` — slice 3 ticked with a done note (signature incl. `robots`, duplicate rule, exclude expects strings)
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none
+
+### Verification
+```
+npx vitest run → Test Files  3 passed (3) / Tests  37 passed (37)
+npm run lint → eslint . (no output, exit 0)
+```
+
+### Self-critique
+- `buildSitemap` takes a fourth option `robots` (the site default `app.robots`) not named in the plan's signature — D3 requires it and the builder has no `app`; slice 4 passes `app.robots`.
+- The W3C regex checks field ranges but not calendar validity (`2026-02-31` passes as a string). Rejected a `Date.parse` cross-check: it would reject/accept differently across forms (`YYYY` alone) for little gain; authored strings are verbatim per D4.
+- Duplicate hrefs: first entry in `pagesData` order wins, so byte-identity with duplicates relies on core's page order being stable; duplicates are an anomaly (two plugins generating the same page).
+- `matchesPattern` throws on a non-string pattern; normalization is slice 4's job (ROADMAP config table: non-strings dropped). A regex is compiled per page × pattern — fine at site scale.
+- `noindex` is a substring test (`/noindex/i`), as D3 says "contains".
+
+### Pressure-test questions for the reviewer
+1. Does `toLastmod` ever emit something sitemaps.org rejects — e.g. a `Date` with non-zero ms at midnight (`T00:00:00.500Z` → full ISO, correct) or a timezone-shifted YAML date?
+2. Is "first wins" the right duplicate rule, or should it be deterministic regardless of input order?
+3. Should `isListed` also require `href` to start with `/` (a relative href would yield `https://example.comfoo.html`)?
+
+## Step 3 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- none
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none
+
+### Checked
+Goal (`buildSitemap` pages → XML per D2–D5, matches ROADMAP "XML shape" byte for byte) · `npx vitest run` → 3 files / 37 tests passed; `npm run lint` → exit 0, no output · Non-negotiables, Framework correctness, Tests & hygiene (no UI) · self-critique: `robots` option recorded in ROADMAP slice 3 note, W3C regex range-only check matches D4 "verbatim", first-wins duplicate rule written into ROADMAP, `matchesPattern` non-string left to slice 4 per ROADMAP config table, `/noindex/i` = D3 "contains" · scope: only the step's four files + ROADMAP tick + plan/log · no new dependency · walkthrough n/a (`none`).
+
+### Answers to the pressure-test questions
+1. No. Core parses frontmatter with `yaml` (`generator/src/core.js:43`); checked: `date: 2026-10-01` → `2026-10-01T00:00:00.000Z` (→ `2026-10-01`), `2026-10-01 09:30:00 +02:00` → `2026-10-01T07:30:00.000Z` (→ `2026-10-01T07:30:00Z`, valid UTC). A midnight Date with ms (`.500Z`) does not end in `.000Z`, so it takes the second branch and `.500Z` is stripped → `T00:00:00Z` — valid W3C. Invalid Dates, numbers and free strings yield null; `toString()` is never reached (tested).
+2. "First wins" is acceptable: it is documented in ROADMAP slice 3, duplicates are an anomaly, and core's page order plus fixed plugin order is stable for the same site, so D3's byte-identity holds. Making it order-independent (e.g. max lastmod) would be a new rule needing a decision for no observed case.
+3. Not needed now. Core always builds `href` as `/${page…}` (`generator/src/core.js:227`) and spreads frontmatter *before* it, so frontmatter cannot override it; the fleet's generated pages (`nera-plugin-tags/index.js:184,227`) also emit rooted hrefs. A relative href would be a bug in the producing plugin; D3 only requires "a string `meta.href`".
+
+## Step 3 — approved (2026-10-11)
+
+snagio: ticked

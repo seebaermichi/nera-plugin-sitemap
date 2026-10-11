@@ -56,7 +56,7 @@ Publishing, pushing and the catalog commits in other repos are handed over, not 
 - **Risks:** npm 10.8 lockfile crashes vitest 5; husky `prepare` failing without `.husky/`
 - **Walkthrough:** none
 
-### Step 3 — Pure sitemap builder — ⬜ todo
+### Step 3 — Pure sitemap builder — ✅ done
 
 - **Goal:** `src/sitemap.js` turns `(pagesData, { origin, basePath, exclude })` into deterministic XML per D2–D5.
 - **Files:** `src/sitemap.js`, `src/urls.js` (origin trim, basePath join, XML escape, pattern match), `test/sitemap.test.js`, `test/urls.test.js`

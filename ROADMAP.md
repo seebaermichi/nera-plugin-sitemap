@@ -186,7 +186,9 @@ Each slice is one step of the issue plan (`plans/issues/01a1260d-…-sitemap-xml
 
 ### Slice 3 — Pure sitemap builder
 
-- [ ] `src/sitemap.js` (pages → XML per D2–D5) and `src/urls.js` (origin trim, basePath join, escaping, `exclude` matching), unit-tested.
+- [x] `src/sitemap.js` (pages → XML per D2–D5) and `src/urls.js` (origin trim, basePath join, escaping, `exclude` matching), unit-tested.
+
+**Done 2026-10-11.** `buildSitemap(pagesData, { origin, basePath, robots, exclude })` takes the site-wide `app.robots` default as `robots` (D3). For a duplicate `href` the first entry in `pagesData` order wins. `exclude` patterns are expected to be strings already; slice 4's config normalization drops the rest.
 
 ### Slice 4 — Hooks, config and core guard
 

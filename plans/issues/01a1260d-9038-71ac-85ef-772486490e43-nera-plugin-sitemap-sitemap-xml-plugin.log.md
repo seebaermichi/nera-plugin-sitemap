@@ -111,3 +111,77 @@ Goal (problem, facts, D1–D7, config, XML, slices 1–7, O1–O4 incl. hreflang
 ## Step 1 — approved (2026-10-11)
 
 snagio: ticked
+commit: 29a3ef0
+
+## Step 2 — started (2026-10-11)
+
+base_sha: 29a3ef0cb43fd3ad2fc1d36b1f1d73e2a8d42752
+mode: fresh
+
+## Step 2 — implemented (2026-10-11)
+
+base_sha: 29a3ef0
+
+### Changed
+- `package.json` — `@nera-static/plugin-sitemap` 1.0.0, ESM, `files` [index.js, src, CHANGELOG.md], engines `^20.19.0 || >=22.0.0`, peer core `>=4.13.0`, dep plugin-utils `^1.6.1`, devDeps core `^4.15.1`/eslint/husky/vitest (versions as code-blocks), `prepare: husky`
+- `package-lock.json` — generated with Node 22.22.0 / npm 10.9.4; committed in this step, before any `npm ci` run
+- `.github/workflows/publish.yml` — byte-identical copy of code-blocks
+- `.github/workflows/test.yml` — copy of code-blocks; only the Node-matrix comment changed (it named cheerio, which this plugin does not use; now names core's floor)
+- `.husky/pre-commit`, `.husky/pre-push`, `LICENSE`, `eslint.config.js` — identical copies of code-blocks (`prepare` works since `.husky/` exists; `.husky/_` is self-ignored)
+- `.gitignore` — gains `.nera-cache/` (`node_modules/` was already there)
+- `index.js` — placeholder synchronous `getAppData` (returns `app`) and `getAssets` (returns `[]`), header comment states they are placeholders until slices 3–4
+- `test/index.test.js` — smoke test: both hooks exported, not async, right return shapes
+- `ROADMAP.md` — slice 2 ticked with a dated "Done" note
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none
+
+### Verification
+```
+PATH=~/.nvm/versions/node/v22.22.0/bin:$PATH npx vitest run → Test Files 1 passed (1) / Tests 3 passed (3)
+npm run lint → eslint . (exit 0, no output)
+npx vitest run under default Node 20.20.0 → passes too (pre-commit hook uses the shell's node)
+npm pack --dry-run → 3 files (LICENSE, package.json, index.js); README/CHANGELOG/src arrive in later steps
+```
+
+### Self-critique
+- Kept `getAppData` even though it does nothing yet: ROADMAP D1/§guard puts the core-version guard there, so the export shape is final now.
+- `files` lists `src` and `CHANGELOG.md` before they exist — npm ignores missing entries, and it avoids touching `files` again in steps 3/7. No `config/` shipped (ROADMAP: no views, config doc lives in README).
+- Least sure: whether `test.yml` should stay byte-identical including the stale cheerio comment; I chose an honest comment (CLAUDE.md says the variants differ only in that comment).
+- The `constructor.name === 'Function'` check is a cheap guard against an `async` hook slipping in later.
+
+### Pressure-test questions for the reviewer
+1. `diff ../nera-plugin-code-blocks/.github/workflows/publish.yml .github/workflows/publish.yml` — empty?
+2. Does `npm ci` succeed from the committed lockfile (`rm -rf node_modules && npm ci`)?
+3. Is `^4.15.1` for the core devDependency right vs. code-blocks' `^4.14.0` (latest is 4.15.1, which the ROADMAP facts were checked against)?
+
+## Step 2 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- none
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none
+
+### Checked
+goal (installable, lint-clean, testable 1.0.0 scaffold with CI + lockfile) · `rm -rf node_modules && npm ci` + `npx vitest run` (1 file / 3 tests passed) + `npm run lint` (exit 0) under Node 22.22.0 / npm 10.9.4 · diff of every copied file against code-blocks · `npm pack --dry-run` (LICENSE, index.js, package.json) · Non-negotiables + Framework correctness (ESM, engines `^20.19.0 || >=22.0.0`, peer core `>=4.13.0`, synchronous hooks with right shapes, no new runtime dep beyond plugin-utils, eslint style) · self-critique claims (all confirmed) · walkthrough n/a (`none`)
+
+### Answers to the pressure-test questions
+1. Yes — `diff ../nera-plugin-code-blocks/.github/workflows/publish.yml .github/workflows/publish.yml` is empty; `eslint.config.js`, `LICENSE`, `.husky/pre-commit`, `.husky/pre-push` are identical too. `test.yml` differs only in lines 16–17, the Node-matrix comment (cheerio → core's `^20.19.0 || >=22.0.0` floor), which is accurate for this plugin and the kind of variant CLAUDE.md calls cosmetic.
+2. Yes — `rm -rf node_modules && npm ci` from the committed lockfile (lockfileVersion 3) succeeds, "found 0 vulnerabilities", and the suite then passes.
+3. Yes — `npm view @nera-static/core version` → 4.15.1; a devDependency at the current latest is right for a new package (consumers never install it; the peer range `>=4.13.0` is what carries the contract). plugin-utils `^1.6.1` matches latest 1.6.1 and code-blocks; eslint/husky/vitest ranges match code-blocks exactly.
+
+## Step 2 — approved (2026-10-11)
+
+snagio: ticked

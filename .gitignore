@@ -33,3 +33,6 @@ build/
 
 # Test scratch directory
 .tmp/
+
+# Build cache the plugin writes the sitemap into (ROADMAP D1)
+.nera-cache/

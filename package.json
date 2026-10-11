@@ -1,0 +1,58 @@
+{
+    "name": "@nera-static/plugin-sitemap",
+    "version": "1.0.0",
+    "description": "A plugin for Nera static site generator to generate a sitemap.xml for every rendered page, plus a robots.txt pointer to it.",
+    "main": "index.js",
+    "scripts": {
+        "lint": "eslint .",
+        "test": "vitest",
+        "prepare": "husky"
+    },
+    "type": "module",
+    "exports": {
+        ".": "./index.js"
+    },
+    "files": [
+        "index.js",
+        "src",
+        "CHANGELOG.md"
+    ],
+    "keywords": [
+        "nera",
+        "nera-plugin",
+        "static-site-generator",
+        "sitemap",
+        "sitemap.xml",
+        "robots.txt",
+        "seo"
+    ],
+    "author": "Michael Becker",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/seebaermichi/nera-plugin-sitemap"
+    },
+    "bugs": {
+        "url": "https://github.com/seebaermichi/nera-plugin-sitemap/issues"
+    },
+    "homepage": "https://github.com/seebaermichi/nera-plugin-sitemap#readme",
+    "publishConfig": {
+        "access": "public"
+    },
+    "peerDependencies": {
+        "@nera-static/core": ">=4.13.0"
+    },
+    "engines": {
+        "node": "^20.19.0 || >=22.0.0"
+    },
+    "sideEffects": false,
+    "dependencies": {
+        "@nera-static/plugin-utils": "^1.6.1"
+    },
+    "devDependencies": {
+        "@nera-static/core": "^4.15.1",
+        "eslint": "^10.12.0",
+        "husky": "^9.1.7",
+        "vitest": "^5.0.3"
+    }
+}

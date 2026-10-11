@@ -180,7 +180,9 @@ Each slice is one step of the issue plan (`plans/issues/01a1260d-…-sitemap-xml
 
 ### Slice 2 — Package scaffold like the fleet
 
-- [ ] `package.json` (`@nera-static/plugin-sitemap` 1.0.0, ESM, `files`, engines `^20.19.0 || >=22.0.0`, peer `@nera-static/core >=4.13.0`, dep `@nera-static/plugin-utils`), lockfile from npm ≥ 10.9, `eslint.config.js`, `LICENSE`, `.github/workflows/{test,publish}.yml` from `nera-plugin-code-blocks`, `index.js` + smoke test, `.gitignore` with `node_modules` and `.nera-cache`.
+- [x] `package.json` (`@nera-static/plugin-sitemap` 1.0.0, ESM, `files`, engines `^20.19.0 || >=22.0.0`, peer `@nera-static/core >=4.13.0`, dep `@nera-static/plugin-utils`), lockfile from npm ≥ 10.9, `eslint.config.js`, `LICENSE`, `.github/workflows/{test,publish}.yml` from `nera-plugin-code-blocks`, `index.js` + smoke test, `.gitignore` with `node_modules` and `.nera-cache`.
+
+**Done 2026-10-11.** Hooks are placeholders (`getAppData` returns `app`, `getAssets` returns `[]`) until slices 3–4; `test.yml` differs from code-blocks only in the Node-matrix comment (core's floor, not cheerio's).
 
 ### Slice 3 — Pure sitemap builder
 

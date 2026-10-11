@@ -47,7 +47,7 @@ Publishing, pushing and the catalog commits in other repos are handed over, not 
 - **Risks:** a fact wrong here propagates into every later step
 - **Walkthrough:** none
 
-### Step 2 — Scaffold the package like the fleet — ⬜ todo
+### Step 2 — Scaffold the package like the fleet — ✅ done
 
 - **Goal:** an installable, lint-clean, testable empty plugin at 1.0.0 with CI and lockfile.
 - **Files:** `package.json` (name, `files`, engines `^20.19.0 || >=22.0.0`, peer `@nera-static/core >=4.13.0`, dep `@nera-static/plugin-utils`, devDeps core/eslint/vitest/husky), `package-lock.json` (npm ≥ 10.9), `eslint.config.js`, `LICENSE`, `.github/workflows/{test,publish}.yml` (copied from code-blocks), `index.js` + `test/index.test.js` (hooks exported, smoke test); `.gitignore` gains `node_modules`, `.nera-cache`

@@ -119,7 +119,7 @@ Publishing, pushing and the catalog commits in other repos are handed over, not 
 - **Risks:** `afterEach` removing a dir while the cwd is still inside it
 - **Walkthrough:** none
 
-### Step 10 — hreflang alternates in the sitemap (triage #5, ROADMAP O1) — ⬜ todo
+### Step 10 — hreflang alternates in the sitemap (triage #5, ROADMAP O1) — ✅ done
 
 - **Goal:** a multilingual site gets `xhtml:link rel="alternate" hreflang="…"` entries per `<url>` (plus `xmlns:xhtml` on `<urlset>`) for every translation of that page, including itself. Translations come from `meta.alternateLinks` when `plugin-canonical-links` ran first (it does: alphabetical order), else are paired by the frontmatter key `alternates_identifier` (default `slug`, the same as canonical-links' `page_identifier`). New config key `alternates` (`auto` default: written only when a page has ≥ 2 languages; `false` disables). Hrefs go through the same origin + basePath + encoding as `<loc>`. D5 amended, O1 resolved, README config table, CHANGELOG 1.0.0 entry.
 - **Files:** `src/sitemap.js`, `src/config.js`, `test/sitemap.test.js`, `test/config.test.js`, `README.md`, `ROADMAP.md` (+ `CHANGELOG.md`)

@@ -5,6 +5,7 @@
 import { escapeXml, isExcluded, joinUrl } from './urls.js'
 
 const NAMESPACE = 'http://www.sitemaps.org/schemas/sitemap/0.9'
+const XHTML_NAMESPACE = 'http://www.w3.org/1999/xhtml'
 
 /** The protocol's cap for one sitemap file: 50,000 URLs (ROADMAP O2). */
 export const MAX_URLS = 50000
@@ -65,18 +66,113 @@ export function isListed(meta, { robots, exclude = [] } = {}) {
     return !isExcluded(meta.href, exclude)
 }
 
+const byString = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
+
+const nonEmptyString = (value) => typeof value === 'string' && value !== ''
+
+// Translations paired by a frontmatter key (O1, the way canonical-links
+// pairs them by its `page_identifier`): every listed page with a language
+// and the same identifier value is one group. Within a group the first page
+// per language in href order wins, so a duplicate cannot make the output
+// depend on input order.
+function pairByIdentifier(listed, identifier, langOf) {
+    const groups = new Map()
+    const keyOf = new Map()
+    for (const [href, meta] of listed) {
+        const value = meta[identifier]
+        const lang = langOf(meta)
+        if (!lang || !(nonEmptyString(value) || Number.isFinite(value))) continue
+        const key = String(value)
+        if (!groups.has(key)) groups.set(key, new Map())
+        const group = groups.get(key)
+        if (!group.has(lang)) group.set(lang, href)
+        keyOf.set(href, key)
+    }
+    const translations = new Map()
+    for (const [href, key] of keyOf) translations.set(href, groups.get(key))
+    return translations
+}
+
+// Translations taken from plugin-canonical-links' `meta.alternateLinks`
+// (O1). Its `href` is `origin + meta.href` without base_path (O3), so each
+// one is resolved back to a listed page and the URL is rebuilt from that
+// page's `href`; a link to an unlisted page (excluded, no layout) or to a
+// page in another language than its `hreflang` is dropped.
+function pairByAlternateLinks(listed, origin, langOf) {
+    const byUrl = new Map()
+    for (const href of listed.keys()) byUrl.set(`${origin}${href}`, href)
+
+    const translations = new Map()
+    for (const [href, meta] of listed) {
+        const lang = langOf(meta)
+        if (!lang) continue
+        const group = new Map([[lang, href]])
+        for (const link of Array.isArray(meta.alternateLinks) ? meta.alternateLinks : []) {
+            if (!link || !nonEmptyString(link.hreflang) || group.has(link.hreflang)) continue
+            const target = byUrl.get(link.href)
+            if (target && langOf(listed.get(target)) === link.hreflang) group.set(link.hreflang, target)
+        }
+        translations.set(href, group)
+    }
+    return translations
+}
+
+/**
+ * The hreflang alternates of every listed page (O1): href → `[{ hreflang,
+ * href }]` sorted by hreflang, the page itself included. Only pages with at
+ * least two languages get an entry, so a monolingual site gets none.
+ *
+ * Translations come from `meta.alternateLinks` when plugin-canonical-links
+ * filled it for any listed page, else from pairing pages by the frontmatter
+ * key `identifier`. A page's language is `meta.lang`, else the site's `lang`.
+ *
+ * @param {Map<string, object>} listed listed pages, href → meta, in href order
+ * @param {{ origin: string, lang?: string, identifier?: string }} options
+ * @returns {Map<string, Array<{ hreflang: string, href: string }>>}
+ */
+export function collectAlternates(listed, { origin, lang, identifier = 'slug' }) {
+    const langOf = (meta) =>
+        (nonEmptyString(meta.lang) && meta.lang) || (nonEmptyString(lang) && lang) || ''
+    const fromLinks = [...listed.values()]
+        .some((meta) => Array.isArray(meta.alternateLinks) && meta.alternateLinks.length > 0)
+    const translations = fromLinks
+        ? pairByAlternateLinks(listed, origin, langOf)
+        : pairByIdentifier(listed, identifier, langOf)
+
+    const alternates = new Map()
+    for (const [href, group] of translations) {
+        if (group.size < 2) continue
+        alternates.set(href, [...group]
+            .sort(([a], [b]) => byString(a, b))
+            .map(([hreflang, target]) => ({ hreflang, href: target })))
+    }
+    return alternates
+}
+
 /**
  * The sitemap XML for `pagesData`. Listed pages are deduplicated and
  * sorted by `href` (plain string order), so the same site always yields
- * a byte-identical file.
+ * a byte-identical file. With `alternates: 'auto'` every page that has
+ * translations gets `xhtml:link` alternates (O1), and only then does
+ * `<urlset>` declare the `xhtml` namespace.
  *
  * @param {Array<{ meta: object }>} pagesData core's page data
- * @param {{ origin: string, basePath?: string, robots?: string, exclude?: string[] }} options
- *   `origin` already trimmed (see `trimOrigin`), `robots` the site-wide
- *   `app.robots` default
+ * @param {{ origin: string, basePath?: string, robots?: string, exclude?: string[],
+ *   lang?: string, alternates?: 'auto' | false, identifier?: string }} options
+ *   `origin` already trimmed (see `trimOrigin`), `robots` and `lang` the
+ *   site-wide `app.robots`/`app.lang` defaults, `identifier` the frontmatter
+ *   key pairing translations
  * @returns {string}
  */
-export function buildSitemap(pagesData, { origin, basePath = '', robots, exclude = [] }) {
+export function buildSitemap(pagesData, {
+    origin,
+    basePath = '',
+    robots,
+    exclude = [],
+    lang,
+    alternates = 'auto',
+    identifier = 'slug',
+}) {
     const byHref = new Map()
     for (const page of pagesData || []) {
         const meta = page && page.meta
@@ -84,19 +180,33 @@ export function buildSitemap(pagesData, { origin, basePath = '', robots, exclude
         if (!byHref.has(meta.href)) byHref.set(meta.href, meta)
     }
 
-    const hrefs = [...byHref.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+    const listed = new Map([...byHref].sort(([a], [b]) => byString(a, b)))
+    const alternatesOf = alternates === false
+        ? new Map()
+        : collectAlternates(listed, { origin, lang, identifier })
+    const url = (href) => escapeXml(joinUrl(origin, basePath, href))
+
+    const body = []
+    for (const [href, meta] of listed) {
+        body.push('    <url>')
+        body.push(`        <loc>${url(href)}</loc>`)
+        const lastmod = pickLastmod(meta)
+        if (lastmod) body.push(`        <lastmod>${lastmod}</lastmod>`)
+        for (const alternate of alternatesOf.get(href) || []) {
+            body.push(
+                '        <xhtml:link rel="alternate" ' +
+                    `hreflang="${escapeXml(alternate.hreflang)}" href="${url(alternate.href)}"/>`
+            )
+        }
+        body.push('    </url>')
+    }
+    const xhtml = alternatesOf.size > 0 ? ` xmlns:xhtml="${XHTML_NAMESPACE}"` : ''
     const lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
-        `<urlset xmlns="${NAMESPACE}">`,
+        `<urlset xmlns="${NAMESPACE}"${xhtml}>`,
+        ...body,
+        '</urlset>',
     ]
-    for (const href of hrefs) {
-        lines.push('    <url>')
-        lines.push(`        <loc>${escapeXml(joinUrl(origin, basePath, href))}</loc>`)
-        const lastmod = pickLastmod(byHref.get(href))
-        if (lastmod) lines.push(`        <lastmod>${lastmod}</lastmod>`)
-        lines.push('    </url>')
-    }
-    lines.push('</urlset>')
     return `${lines.join('\n')}\n`
 }
 

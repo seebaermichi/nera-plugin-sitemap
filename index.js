@@ -40,6 +40,9 @@ export function getAssets({ app = {}, pagesData = [] } = {}) {
         basePath: app.basePath,
         robots: app.robots,
         exclude: config.exclude,
+        lang: app.lang,
+        alternates: config.alternates,
+        identifier: config.alternates_identifier,
     })
     const limitWarning = protocolLimitWarning(xml)
     if (limitWarning) warn(limitWarning)

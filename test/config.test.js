@@ -23,7 +23,13 @@ describe('normalizeConfig', () => {
     })
 
     it('defaults match the ROADMAP configuration', () => {
-        expect(defaults()).toEqual({ output: 'sitemap.xml', exclude: [], robots: true })
+        expect(defaults()).toEqual({
+            output: 'sitemap.xml',
+            exclude: [],
+            robots: true,
+            alternates: 'auto',
+            alternates_identifier: 'slug',
+        })
     })
 
     it('the shipped config/sitemap.yaml documents exactly the defaults', () => {
@@ -37,16 +43,26 @@ describe('normalizeConfig', () => {
             output: 'seo/map.xml',
             exclude: ['/drafts/*', '/404.html'],
             robots: false,
+            alternates: false,
+            alternates_identifier: 'translation_key',
         })).toEqual({
             output: 'seo/map.xml',
             exclude: ['/drafts/*', '/404.html'],
             robots: false,
+            alternates: false,
+            alternates_identifier: 'translation_key',
         })
         expect(warn).not.toHaveBeenCalled()
     })
 
     it('treats a key present but empty like an absent key', () => {
-        expect(normalizeConfig({ output: null, exclude: null, robots: null })).toEqual(defaults())
+        expect(normalizeConfig({
+            output: null,
+            exclude: null,
+            robots: null,
+            alternates: null,
+            alternates_identifier: null,
+        })).toEqual(defaults())
     })
 
     it('falls back to the default output when it would escape public/', () => {
@@ -89,6 +105,21 @@ describe('normalizeConfig', () => {
         expect(normalizeConfig({ robots: true }).robots).toBe(true)
     })
 
+    it('reads alternates: true as auto and warns for any other value', () => {
+        expect(normalizeConfig({ alternates: true }).alternates).toBe('auto')
+        expect(warn).not.toHaveBeenCalled()
+        expect(normalizeConfig({ alternates: 'always' }).alternates).toBe('auto')
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('invalid alternates "always"'))
+    })
+
+    it('falls back to slug for an alternates_identifier that is not a non-empty string', () => {
+        expect(normalizeConfig({ alternates_identifier: ' key ' }).alternates_identifier).toBe('key')
+        for (const value of ['', '  ', 3, ['slug']]) {
+            expect(normalizeConfig({ alternates_identifier: value }).alternates_identifier).toBe('slug')
+        }
+        expect(warn).toHaveBeenCalledTimes(4)
+    })
+
     it('warns about unknown keys and a non-mapping top level', () => {
         expect(normalizeConfig({ changefreq: 'daily' })).toEqual(defaults())
         expect(warn).toHaveBeenCalledWith(
@@ -127,7 +158,7 @@ describe('loadConfig', () => {
     it('reads config/sitemap.yaml from the site root', () => {
         const cwd = tempDir()
         write(path.join(cwd, 'config/sitemap.yaml'), 'robots: false\nexclude: /drafts/*\n')
-        expect(loadConfig({ cwd })).toEqual({ output: 'sitemap.xml', exclude: ['/drafts/*'], robots: false })
+        expect(loadConfig({ cwd })).toEqual({ ...defaults(), exclude: ['/drafts/*'], robots: false })
     })
 
     it('honours app.folders.config', () => {

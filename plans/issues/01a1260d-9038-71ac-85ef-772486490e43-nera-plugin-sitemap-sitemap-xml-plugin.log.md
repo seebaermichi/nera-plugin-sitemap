@@ -756,3 +756,80 @@ Goal (#3 theme package + local theme suppress the generated file, site wins; #4 
 ## Step 9 — approved (2026-10-11)
 
 snagio: ticked
+commit: 2107292
+
+## Step 10 — started (2026-10-11)
+
+base_sha: 2107292405e49c686696685406f73e9ca89ccf5c
+mode: fresh
+
+## Step 10 — implemented (2026-10-11)
+
+base_sha: 2107292
+
+### Changed
+- `src/sitemap.js` — `collectAlternates` (exported) + `pairByIdentifier` / `pairByAlternateLinks`; `buildSitemap` takes `lang`, `alternates`, `identifier`, writes `<xhtml:link rel="alternate" hreflang href/>` after `<lastmod>` and declares `xmlns:xhtml` only when some page has alternates
+- `src/config.js` — new keys `alternates` (`auto` default, `true` → `auto`, `false` off, else warn) and `alternates_identifier` (default `slug`, trimmed non-empty string, else warn)
+- `index.js` — passes `app.lang`, `config.alternates`, `config.alternates_identifier` to `buildSitemap`
+- `config/sitemap.yaml` — documents the two new keys with their defaults (the "shipped file = defaults" test covers it)
+- `test/sitemap.test.js` — 10 tests: monolingual byte-identical / no namespace, exact en/de/es XML, untranslated page, excluded/noindex/layout-less translation never linked, site-lang fallback + identifier-less pages, duplicates per language (first in href order, input-order independent), custom identifier, `alternates: false`, canonical-links `alternateLinks` rebuilt from `meta.href` with basePath + encoding (and dropping a link to an unlisted page), wrong-language link dropped
+- `test/config.test.js` — defaults, valid values, empty keys, `alternates` / `alternates_identifier` validation; `loadConfig` expectation built from `defaults()`
+- `test/index.test.js` — hook wires `app.lang`, `alternates_identifier` and `alternates: false` from the site config
+- `ROADMAP.md` — D5 amended (pairing rules, self-reference, order, no x-default), config block + table + "keys the plugin reads", XML shape, O1 resolved, Slice 10, stale semver example replaced (O2's sitemap index)
+- `README.md` — feature bullet, new "Multilingual sites: hreflang alternates" section, config block + table
+- `CHANGELOG.md` — 1.0.0 entry: alternates bullet, config bullet lists the two keys
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none
+
+### Verification
+```
+npx vitest run → Test Files  7 passed (7) / Tests  126 passed (126)
+npm run lint → eslint . (no output, exit 0)
+```
+
+### Self-critique
+- Source switch is **per site**, not per page: if any listed page has a non-empty `meta.alternateLinks`, canonical-links' pairing is used everywhere; else identifier pairing. Per-page mixing could produce asymmetric groups; the cost is that a page canonical-links left with `[]` (e.g. no `meta.lang`) gets nothing even if its slug would pair it. Considered also honouring canonical-links' `page_identifier` as the default identifier — rejected: it would make this plugin read a second config key from another plugin's file; `alternates_identifier` defaults to the same `slug`.
+- Added `alternates_identifier` as a second config key: the plan names only `alternates` as "new config key" but says the identifier "defaults to `slug`", which needs a config key to be anything but fixed. Reviewer may disagree on scope.
+- Language fallback to `app.lang` (like core's `t()`), whereas canonical-links needs an explicit `meta.lang`. So identifier pairing covers a default-language page without `lang`; the canonical-links path does too for the page itself, but other pages' links to it are absent (canonical-links never finds it) — consistent with what canonical-links writes in the HTML.
+- Matching canonical-links hrefs uses `${origin}${meta.href}` with *our* origin; ours is `.trim()`med, canonical-links' is not. An origin with surrounding whitespace in app.yaml would make every link miss → no alternates (not wrong output, just none). Judged too edge to handle.
+- Identifier values: non-empty strings or finite numbers, keyed by `String(value)` (so `1` and `'1'` pair). Dates/objects are ignored.
+- No `x-default` — documented in D5.
+
+### Pressure-test questions for the reviewer
+1. Can any `<xhtml:link href>` point at a page that is not itself a `<loc>`? (Both pairing paths only draw targets from the `listed` map — check `pairByAlternateLinks`' `byUrl` lookup and the `langOf(target) === hreflang` guard.)
+2. Is a monolingual or slug-less site byte-identical to 2107292's output? (`alternatesOf.size === 0` → no namespace; test "leaves a monolingual site byte-identical" compares against `alternates: false`, and the existing exact-shape tests still pass unchanged.)
+3. Is the per-site "canonical-links ran" switch the right rule, vs. per page?
+4. Does `protocolLimitWarning`'s `<url>` count stay right with `<xhtml:link` lines? (It matches `<url>` literally, so yes — but the byte cap now grows with alternates, which is correct.)
+
+## Step 10 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- `README.md:139` — config block lacked the blank line before the `alternates` comment that the shipped `config/sitemap.yaml` has — `npx vitest run && npm run lint` → 126 passed, lint clean
+
+### Fixed alongside
+- none
+
+### Carry forward
+- design · S · `src/sitemap.js` (`pairByIdentifier`) — a second page with the same identifier and language (e.g. two `en` pages with `slug: x`) gets alternates that omit itself and point its own `hreflang` at the first page; deterministic and documented, but a duplicate-identifier warning might help — why not now: decision (warn vs. silent), misconfigured sites only
+
+### Checked
+goal (xhtml:link per translated page, namespace only when used, identifier + canonical-links pairing, `alternates: false`) · `npx vitest run` 126/126, `npm run lint` clean · Non-negotiables (ROADMAP D5/O1/slice 10 written back, CHANGELOG 1.0.0, hooks unchanged/sync, config fallbacks + shipped yaml = defaults), Framework correctness (URLs via the same `joinUrl` + `escapeXml` as `<loc>`, determinism, layout-less pages) · all 5 self-critique claims · 4 pressure-test answers · canonical-links' `getOrigin` read to confirm the href format · walkthrough n/a
+
+### Answers to the pressure-test questions
+1. No. `pairByIdentifier` iterates only `listed`; `pairByAlternateLinks` resolves every link through `byUrl` (built from `listed.keys()`) and keeps it only if `langOf(listed.get(target)) === link.hreflang`. `listed` is filled by `isListed`, which already drops layout-less, `sitemap: false`, `noindex` and excluded pages. Tests "never points at an excluded, noindex or layout-less translation" and the `gone.html` case pin it.
+2. Yes. `alternatesOf.size === 0` means no namespace and no links. The `<url>` lines are built the same way as at 2107292 (`loc`, then optional `lastmod`). All pre-existing exact-shape tests pass unchanged, and the new monolingual test compares against `alternates: false`. Groups of size < 2 are dropped, so a site with a `slug` but one language is unchanged too.
+3. Acceptable for 1.0. canonical-links pairs symmetrically from one config (`available_languages`, `page_identifier`), so mixing per page could produce asymmetric groups. The trade-off (a page canonical-links left with `[]` gets nothing) matches what the HTML says and is documented in D5. Origins agree: canonical-links strips trailing slashes (`index.js:22`) like `trimOrigin`, so the `${origin}${href}` lookup matches. Only surrounding whitespace in `app.origin` differs, and that degrades to "no alternates", never to wrong ones.
+4. Yes. `protocolLimitWarning` counts `<url>` literally, so `<xhtml:link` lines do not inflate the URL count. The byte cap counts the real file size, alternates included, which is correct.
+
+## Step 10 — approved (2026-10-11)
+
+snagio: ticked

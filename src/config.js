@@ -14,6 +14,8 @@ export function defaults() {
         output: 'sitemap.xml',
         exclude: [],
         robots: true,
+        alternates: 'auto',
+        alternates_identifier: 'slug',
     }
 }
 
@@ -59,11 +61,26 @@ const readOutput = (value, fallback) => {
     return output && output !== ROBOTS_FILE ? output : bad('output', value, fallback)
 }
 
+// `auto` (or `true`) writes hreflang alternates for translated pages, `false`
+// turns them off (O1); anything else warns.
+const readAlternates = (value, fallback) => {
+    if (value === false) return false
+    if (value === 'auto' || value === true) return 'auto'
+    return bad('alternates', value, fallback)
+}
+
+const readIdentifier = (value, fallback) =>
+    typeof value === 'string' && value.trim() !== ''
+        ? value.trim()
+        : bad('alternates_identifier', value, fallback)
+
 const readers = {
     output: readOutput,
     exclude: readExclude,
     // Anything but `false` keeps the pointer on (ROADMAP "Configuration").
     robots: (value) => value !== false,
+    alternates: readAlternates,
+    alternates_identifier: readIdentifier,
 }
 
 /**
@@ -71,7 +88,8 @@ const readers = {
  * Pure apart from warnings; `normalizeConfig({})` is the full default config.
  *
  * @param {object} raw parsed `config/sitemap.yaml`
- * @returns {{ output: string, exclude: string[], robots: boolean }}
+ * @returns {{ output: string, exclude: string[], robots: boolean,
+ *   alternates: 'auto' | false, alternates_identifier: string }}
  */
 export function normalizeConfig(raw) {
     const config = defaults()

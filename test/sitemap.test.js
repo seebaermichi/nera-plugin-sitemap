@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_BYTES, MAX_URLS, buildSitemap, isListed, pickLastmod, protocolLimitWarning, toLastmod } from '../src/sitemap.js'
+import { MAX_BYTES, MAX_URLS, buildSitemap, collectAlternates, isListed, pickLastmod, protocolLimitWarning, toLastmod } from '../src/sitemap.js'
 
 const ORIGIN = 'https://example.com'
 const page = (meta) => ({ content: '', meta: { layout: 'pages/default.pug', ...meta } })
@@ -190,7 +190,7 @@ describe('buildSitemap', () => {
             .toBe(buildSitemap(pages, { origin: ORIGIN }))
     })
 
-    it('lists every language under its own URL, without hreflang', () => {
+    it('lists every language under its own URL, without hreflang when nothing pairs them', () => {
         const xml = buildSitemap([
             page({ href: '/index.html', lang: 'en' }),
             page({ href: '/de/index.html', lang: 'de' }),
@@ -219,6 +219,144 @@ describe('buildSitemap', () => {
         })
         expect(xml).not.toContain('a.html')
         expect(xml).toContain('<loc>https://example.com/b.html</loc>')
+    })
+})
+
+describe('hreflang alternates', () => {
+    const XHTML = 'xmlns:xhtml="http://www.w3.org/1999/xhtml"'
+    const link = (hreflang, href) =>
+        `        <xhtml:link rel="alternate" hreflang="${hreflang}" href="https://example.com${href}"/>`
+    const trilingual = [
+        page({ href: '/about.html', lang: 'en', slug: 'about', date: '2026-10-01' }),
+        page({ href: '/de/about.html', lang: 'de', slug: 'about' }),
+        page({ href: '/es/about.html', lang: 'es', slug: 'about' }),
+        page({ href: '/imprint.html', lang: 'en', slug: 'imprint' }),
+    ]
+
+    it('leaves a monolingual site byte-identical, with no xhtml namespace', () => {
+        const pages = [
+            page({ href: '/index.html', slug: 'home' }),
+            page({ href: '/about.html', slug: 'about' }),
+        ]
+        const xml = buildSitemap(pages, { origin: ORIGIN, lang: 'en' })
+        expect(xml).toBe(buildSitemap(pages, { origin: ORIGIN, alternates: false }))
+        expect(xml).not.toContain('xmlns:xhtml')
+    })
+
+    it('pairs en/de/es by slug, the page itself included, sorted by hreflang', () => {
+        const xml = buildSitemap(trilingual, { origin: ORIGIN })
+        const all = [link('de', '/de/about.html'), link('en', '/about.html'), link('es', '/es/about.html')]
+
+        expect(xml).toBe([
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" ${XHTML}>`,
+            '    <url>',
+            '        <loc>https://example.com/about.html</loc>',
+            '        <lastmod>2026-10-01</lastmod>',
+            ...all,
+            '    </url>',
+            '    <url>',
+            '        <loc>https://example.com/de/about.html</loc>',
+            ...all,
+            '    </url>',
+            '    <url>',
+            '        <loc>https://example.com/es/about.html</loc>',
+            ...all,
+            '    </url>',
+            '    <url>',
+            '        <loc>https://example.com/imprint.html</loc>',
+            '    </url>',
+            '</urlset>',
+            '',
+        ].join('\n'))
+    })
+
+    it('gives an untranslated page no alternates', () => {
+        const alternates = collectAlternates(new Map([
+            ['/a.html', { lang: 'en', slug: 'a' }],
+            ['/de/b.html', { lang: 'de', slug: 'b' }],
+        ]), { origin: ORIGIN })
+        expect(alternates.size).toBe(0)
+    })
+
+    it('never points at an excluded, noindex or layout-less translation', () => {
+        const xml = buildSitemap([
+            page({ href: '/a.html', lang: 'en', slug: 'a' }),
+            page({ href: '/de/a.html', lang: 'de', slug: 'a' }),
+            page({ href: '/es/a.html', lang: 'es', slug: 'a' }),
+            page({ href: '/fr/a.html', lang: 'fr', slug: 'a', robots: 'noindex' }),
+            { content: '', meta: { href: '/it/a.html', lang: 'it', slug: 'a' } },
+        ], { origin: ORIGIN, exclude: ['/es/*'] })
+
+        expect(xml).toContain(link('de', '/de/a.html'))
+        expect(xml).toContain(link('en', '/a.html'))
+        expect(xml).not.toMatch(/\/(es|fr|it)\/a\.html/)
+    })
+
+    it('uses the site lang for pages without one and skips pages without an identifier', () => {
+        const xml = buildSitemap([
+            page({ href: '/a.html', slug: 'a' }),
+            page({ href: '/de/a.html', lang: 'de', slug: 'a' }),
+            page({ href: '/b.html', lang: 'en' }),
+            page({ href: '/de/b.html', lang: 'de' }),
+        ], { origin: ORIGIN, lang: 'en' })
+
+        expect(xml).toContain(link('en', '/a.html'))
+        expect(xml.match(/<xhtml:link/g)).toHaveLength(4)
+    })
+
+    it('keeps the first page per language in href order', () => {
+        const pages = [
+            page({ href: '/b.html', lang: 'en', slug: 'x' }),
+            page({ href: '/a.html', lang: 'en', slug: 'x' }),
+            page({ href: '/de/x.html', lang: 'de', slug: 'x' }),
+        ]
+        const xml = buildSitemap(pages, { origin: ORIGIN })
+        expect(xml).toContain(link('en', '/a.html'))
+        expect(xml).not.toContain(link('en', '/b.html'))
+        expect(xml).toBe(buildSitemap([...pages].reverse(), { origin: ORIGIN }))
+    })
+
+    it('pairs by the configured identifier', () => {
+        const xml = buildSitemap([
+            page({ href: '/a.html', lang: 'en', key: 1 }),
+            page({ href: '/de/a.html', lang: 'de', key: 1, slug: 'other' }),
+        ], { origin: ORIGIN, identifier: 'key' })
+        expect(xml).toContain(link('de', '/de/a.html'))
+    })
+
+    it('writes nothing with alternates: false', () => {
+        const xml = buildSitemap(trilingual, { origin: ORIGIN, alternates: false })
+        expect(xml).not.toContain('xhtml')
+    })
+
+    it('rebuilds canonical-links alternates from meta.href, with basePath and encoding', () => {
+        const alternateLinks = (pairs) =>
+            pairs.map(([hreflang, href]) => ({ href: `${ORIGIN}${href}`, hreflang, rel: 'alternate' }))
+        const xml = buildSitemap([
+            page({ href: '/über.html', lang: 'en', alternateLinks: alternateLinks([['de', '/de/über.html']]) }),
+            page({ href: '/de/über.html', lang: 'de', alternateLinks: alternateLinks([['en', '/über.html'], ['es', '/es/gone.html']]) }),
+            page({ href: '/x.html', lang: 'en', slug: 's', alternateLinks: [] }),
+            page({ href: '/de/x.html', lang: 'de', slug: 's', alternateLinks: [] }),
+        ], { origin: ORIGIN, basePath: '/docs' })
+
+        expect(xml).toContain(
+            '        <xhtml:link rel="alternate" hreflang="de" href="https://example.com/docs/de/%C3%BCber.html"/>'
+        )
+        expect(xml).toContain(
+            '        <xhtml:link rel="alternate" hreflang="en" href="https://example.com/docs/%C3%BCber.html"/>'
+        )
+        expect(xml).not.toContain('gone.html')
+        // canonical-links ran, so its (empty) pairing wins over the slug
+        expect(xml).not.toContain('/de/x.html"/>')
+    })
+
+    it('drops a canonical-links alternate whose page has another language', () => {
+        const alternates = collectAlternates(new Map([
+            ['/a.html', { lang: 'en', alternateLinks: [{ href: `${ORIGIN}/de/a.html`, hreflang: 'fr' }] }],
+            ['/de/a.html', { lang: 'de' }],
+        ]), { origin: ORIGIN })
+        expect(alternates.size).toBe(0)
     })
 })
 

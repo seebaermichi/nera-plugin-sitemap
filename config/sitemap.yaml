@@ -15,3 +15,11 @@ exclude: []
 # Generate public/robots.txt pointing at the sitemap, unless the site or its
 # theme ships its own robots.txt.
 robots: true
+
+# hreflang alternates (xhtml:link) for every page that exists in more than one
+# language: "auto" writes them when a page has translations, false never.
+alternates: auto
+
+# The frontmatter key that pairs translations when
+# @nera-static/plugin-canonical-links has not paired them already.
+alternates_identifier: slug

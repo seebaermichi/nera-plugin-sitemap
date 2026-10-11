@@ -15,6 +15,7 @@ A plugin for the [Nera](https://github.com/seebaermichi/nera) static site genera
 - Absolute, percent-encoded and XML-escaped URLs that honour `base_path`
 - `<lastmod>` from the page's frontmatter (`lastmod`, `updatedAt` or `date`), never from file dates
 - Pages leave the sitemap with `sitemap: false`, a `noindex` robots value, or an `exclude` pattern
+- `hreflang` alternates for every page that exists in more than one language
 - A `robots.txt` pointer to the sitemap, unless your site or its theme ships its own `robots.txt`
 - Byte-identical output for the same site, no configuration needed
 
@@ -64,7 +65,26 @@ Every page Nera renders, which means every page with a `layout` in its frontmatt
 - its `robots` value contains `noindex` (case-insensitive, e.g. `robots: noindex, follow`). Without `robots` in the frontmatter, `robots` from `config/app.yaml` counts, the same value the default layout writes into `<meta name="robots">`;
 - its URL matches an `exclude` pattern in `config/sitemap.yaml`.
 
-Every language of a multilingual site is in the same sitemap, each page under its own URL (`/de/…` pages are just pages). The sitemap carries no `hreflang` alternates; `@nera-static/plugin-canonical-links` puts those into each page's HTML.
+Every language of a multilingual site is in the same sitemap, each page under its own URL (`/de/…` pages are just pages).
+
+## Multilingual sites: `hreflang` alternates
+
+A page that exists in more than one language gets an `hreflang` alternate for each of them, itself included:
+
+```xml
+<url>
+    <loc>https://example.com/about.html</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://example.com/de/about.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://example.com/about.html"/>
+</url>
+```
+
+A page's language is its frontmatter `lang`, else `lang` from `config/app.yaml`. Translations are found like this:
+
+- with `@nera-static/plugin-canonical-links` installed and configured with `available_languages`, the sitemap uses the same pairs it writes into each page's HTML;
+- otherwise pages with the same `slug` in their frontmatter are translations of each other (`alternates_identifier` picks another key).
+
+Only listed pages appear as alternates, so a translation that is excluded or `noindex` is never linked. A page without a translation, and so a single-language site, gets no alternates. Set `alternates: false` to turn them off.
 
 URLs are `origin` + `base_path` + the page's path, exactly as the site links to it: `pages/index.md` is listed as `https://example.com/index.html`, not shortened to `/`.
 
@@ -117,6 +137,14 @@ exclude: []
 # Generate public/robots.txt pointing at the sitemap, unless the site or its
 # theme ships its own robots.txt.
 robots: true
+
+# hreflang alternates (xhtml:link) for every page that exists in more than one
+# language: "auto" writes them when a page has translations, false never.
+alternates: auto
+
+# The frontmatter key that pairs translations when
+# @nera-static/plugin-canonical-links has not paired them already.
+alternates_identifier: slug
 ```
 
 | Key | Type | Default | Invalid value |
@@ -124,6 +152,8 @@ robots: true
 | `output` | string | `sitemap.xml` | not a string, empty, absolute, a directory, outside `public/`, or `robots.txt` → warning, default used |
 | `exclude` | list of strings | `[]` | a single string is treated as a one-item list; entries that are not non-empty strings are dropped with a warning; any other type → warning, default used |
 | `robots` | boolean | `true` | anything but `false` counts as `true` |
+| `alternates` | `auto` or `false` | `auto` | `true` counts as `auto`; any other value → warning, default used |
+| `alternates_identifier` | string | `slug` | not a non-empty string → warning, default used |
 
 An unknown key prints a warning and is ignored.
 

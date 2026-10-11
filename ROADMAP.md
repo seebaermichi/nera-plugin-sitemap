@@ -100,9 +100,18 @@ Format ([W3C Datetime](https://www.w3.org/TR/NOTE-datetime), as sitemaps.org req
 
 No `<changefreq>` and no `<priority>`: both are optional in the protocol and Google ignores them.
 
-### D5 — Multilingual: one sitemap, every language, no hreflang in 1.0
+### D5 — Multilingual: one sitemap, every language, hreflang alternates
 
-All pages of all languages go into one sitemap, each under its own URL (`/de/…` pages are just pages). `xhtml:link rel="alternate" hreflang` entries are **not** written in 1.0: `plugin-canonical-links` already puts the alternates into each page's HTML, which search engines accept as an equivalent signal. Sitemap alternates are open item O1.
+All pages of all languages go into one sitemap, each under its own URL (`/de/…` pages are just pages).
+
+Amended 2026-10-11 (Step 10, closing O1, still in 1.0.0): every listed page that exists in **at least two languages** gets one `<xhtml:link rel="alternate" hreflang="…" href="…"/>` per language, **itself included** (Google requires the self-reference), sorted by `hreflang`, after `<lastmod>`; `<urlset>` then also declares `xmlns:xhtml="http://www.w3.org/1999/xhtml"`. A page with no translation gets none, so a monolingual site's sitemap is byte-identical to one without the feature. A page's language is `meta.lang`, else `lang` from `config/app.yaml` (the same fallback core's `t()` uses).
+
+Pairing translations:
+
+- When `plugin-canonical-links` has filled a non-empty `meta.alternateLinks` on **any** listed page, its pairing is used for the whole site (it honours its `available_languages` and `page_identifier`). Its `href` is `origin + meta.href` without `base_path` (O3), so each link is resolved back to a listed page by that string and the URL is rebuilt from that page's `meta.href` like `<loc>` (origin + basePath + percent-encoding).
+- Otherwise pages are paired by the frontmatter key `alternates_identifier` (default `slug`, canonical-links' default `page_identifier`): listed pages with a language and the same non-empty value form one group. Within a group the first page per language in `href` order wins.
+
+An alternate only ever points at a **listed** page — never at an excluded, `noindex`, `sitemap: false` or layout-less one, and a canonical-links link whose target page has another language than its `hreflang` is dropped. `alternates: false` turns the feature off. No `x-default` entry (no reliable signal for which page is the default).
 
 ### D6 — `robots.txt` pointer, on by default
 
@@ -142,6 +151,14 @@ exclude: []
 # Generate public/robots.txt pointing at the sitemap, unless the site ships
 # its own robots.txt in its assets folder.
 robots: true
+
+# hreflang alternates (xhtml:link) for every page that exists in more than one
+# language: "auto" writes them when a page has translations, false never.
+alternates: auto
+
+# The frontmatter key that pairs translations when
+# @nera-static/plugin-canonical-links has not paired them already.
+alternates_identifier: slug
 ```
 
 | key | type | default | invalid value |
@@ -149,8 +166,10 @@ robots: true
 | `output` | string | `sitemap.xml` | not a string, empty, absolute, escaping `public/`, or `robots.txt` (the pointer's path, D6) → warning, default used |
 | `exclude` | list of strings | `[]` | a single string is treated as a one-item list; non-strings dropped |
 | `robots` | boolean | `true` | anything but `false` counts as `true` |
+| `alternates` | `auto` \| `false` | `auto` | `true` counts as `auto`; anything else → warning, default used |
+| `alternates_identifier` | string | `slug` | not a non-empty string → warning, default used |
 
-Frontmatter keys the plugin reads: `layout`, `href` (from core), `sitemap`, `robots`, `lastmod`, `updatedAt`, `date`; from `config/app.yaml` it reads `origin`, `robots` and core's `basePath`/`folders`. It writes no `app.<key>` and no `meta.<key>`.
+Frontmatter keys the plugin reads: `layout`, `href` (from core), `sitemap`, `robots`, `lastmod`, `updatedAt`, `date`, `lang` and the `alternates_identifier` key (`slug`); `meta.alternateLinks` when plugin-canonical-links wrote it; from `config/app.yaml` it reads `origin`, `robots`, `lang` and core's `basePath`/`folders`. It writes no `app.<key>` and no `meta.<key>`.
 
 ---
 
@@ -158,13 +177,17 @@ Frontmatter keys the plugin reads: `layout`, `href` (from core), `sitemap`, `rob
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">   <!-- xmlns:xhtml only when some page has alternates -->
     <url>
         <loc>{percent-encoded, XML-escaped absolute URL}</loc>
         <lastmod>{W3C date}</lastmod>   <!-- only when D4 finds one -->
+        <xhtml:link rel="alternate" hreflang="{lang}" href="{URL as for loc}"/>   <!-- D5: per language, ≥ 2 languages -->
     </url>
 </urlset>
 ```
+
+(The real file has `<urlset …>` on one line.)
 
 UTF-8, four-space indentation, `\n` line endings, a trailing newline, `<url>` elements in `href` order. A site with no listable page gets a valid empty `<urlset>`. Changing this shape, the output path, a config key or its default is a contract change (see "Semver notes").
 
@@ -272,18 +295,24 @@ Not run by the session (never publish or push). In order:
 
 **Done 2026-10-11.** `themeRobotsPath` in `src/robots.js`; `robotsAssets` takes the first regular file of site → theme. Tests: `tempDir` in `test/helpers.js` records each dir and a file-level `afterAll` there removes them (after all tests of the importing file, not after each, because the integration suites build their site once in `beforeAll`); the integration suites' own `afterAll` cleanups are gone.
 
+### Slice 10 — hreflang alternates
+
+- [x] `xhtml:link` alternates per translated page (D5 amended, O1 resolved); new config keys `alternates` and `alternates_identifier`. Lands in the unpublished 1.0.0.
+
+**Done 2026-10-11.** `collectAlternates` in `src/sitemap.js` pairs the listed pages (only those, so no alternate can point at an unlisted page) either from canonical-links' `meta.alternateLinks` (resolved back to listed hrefs) or by the identifier key; `buildSitemap` writes the links and declares `xmlns:xhtml` only when at least one page has them.
+
 ---
 
 ## Open items
 
-- **O1 — hreflang alternates in the sitemap** (`xhtml:link`). Needs a reliable way to pair translations; canonical-links pairs them by its `page_identifier` frontmatter key. Additive (minor) when it comes.
+- **O1 — hreflang alternates in the sitemap** (`xhtml:link`). Resolved 2026-10-11 (Step 10, still in 1.0.0): D5 amended, config keys `alternates` and `alternates_identifier`.
 - **O2 — Sitemap index above 50 000 URLs or 50 MB.** The protocol caps one file there (50 MB = 52 428 800 bytes, uncompressed). Since Step 8 (2026-10-11, still in 1.0.0) the build warns once, naming every cap exceeded, and still writes one file; splitting into `sitemap-1.xml…` plus a `<sitemapindex>` is a later minor.
 - **O3 — canonical-links ignores `base_path`** (D2, known divergence). Belongs to `nera-plugin-canonical-links`.
 - **O4 — A theme package's `robots.txt`.** Resolved 2026-10-11 (Step 9, still in 1.0.0): a theme's `robots.txt` suppresses the generated one like the site's own (D6).
 
 ## Semver notes for later changes
 
-Public contract: the config keys and their defaults, the output path, the XML shape above, the `robots.txt` content and when it is generated, and which frontmatter keys include, exclude or date a page. Removing or renaming any of these, or changing a default's meaning, is **major**. A new optional key, a new optional element (e.g. O1's alternates behind a flag) is **minor**. A fix that makes the output match this document is **patch**.
+Public contract: the config keys and their defaults, the output path, the XML shape above, the `robots.txt` content and when it is generated, and which frontmatter keys include, exclude or date a page. Removing or renaming any of these, or changing a default's meaning, is **major**. A new optional key, a new optional element (e.g. O2's sitemap index) is **minor**. A fix that makes the output match this document is **patch**.
 
 ## Not in scope (for now)
 

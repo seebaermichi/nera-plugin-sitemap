@@ -86,6 +86,19 @@ describe('getAssets', () => {
         expect(xml).not.toContain('hidden')
     })
 
+    it('writes hreflang alternates with app.lang as the default and honours the alternates config', () => {
+        const pagesData = [page('/index.html', { key: 'home' }), page('/de/index.html', { lang: 'de', key: 'home' })]
+        const app = { origin: 'https://example.com', lang: 'en' }
+        write(path.join(cwd, 'config/sitemap.yaml'), 'alternates_identifier: key\n')
+        const [entry] = plugin.getAssets({ app, pagesData })
+        expect(fs.readFileSync(entry.from, 'utf-8'))
+            .toContain('<xhtml:link rel="alternate" hreflang="en" href="https://example.com/index.html"/>')
+
+        write(path.join(cwd, 'config/sitemap.yaml'), 'alternates_identifier: key\nalternates: false\n')
+        plugin.getAssets({ app, pagesData })
+        expect(fs.readFileSync(entry.from, 'utf-8')).not.toContain('xhtml')
+    })
+
     it('takes the origin from config/canonical-links.yaml when app.yaml has none', () => {
         write(path.join(cwd, 'config/canonical-links.yaml'), 'app_origin: https://example.org/\n')
         const [entry] = plugin.getAssets({ app: {}, pagesData: [page('/index.html')] })

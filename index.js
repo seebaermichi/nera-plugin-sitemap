@@ -2,8 +2,8 @@
 //
 // `getAppData` guards the core version (core < 4.13.0 never calls
 // `getAssets`, so the build would exit 0 without a sitemap). `getAssets`
-// sees the final pagesData, writes the sitemap (and, unless the site ships
-// its own, a `robots.txt` pointing at it) to `.nera-cache/sitemap/` and
+// sees the final pagesData, writes the sitemap (and, unless the site or its
+// theme ships one, a `robots.txt` pointing at it) to `.nera-cache/sitemap/` and
 // hands both to core to copy into `public/`. See ROADMAP.md for the
 // decisions (D1–D7) behind each step.
 import fs from 'fs'

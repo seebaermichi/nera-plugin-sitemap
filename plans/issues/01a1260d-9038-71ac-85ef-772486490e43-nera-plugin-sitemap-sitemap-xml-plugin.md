@@ -110,7 +110,7 @@ Publishing, pushing and the catalog commits in other repos are handed over, not 
 - **Risks:** changing hrefs the site's own links use verbatim; a slow cap test
 - **Walkthrough:** none
 
-### Step 9 — A theme package's robots.txt and test temp-dir cleanup (triage #3, #4) — ⬜ todo
+### Step 9 — A theme package's robots.txt and test temp-dir cleanup (triage #3, #4) — ✅ done
 
 - **Goal:** (#3) when `app.theme.package` names an installed theme whose `assets/robots.txt` exists, the plugin treats it like the site's own file (no generated pointer, warn when it lacks a `Sitemap:` line); the site's own file still wins; ROADMAP O4 → resolved, D6 amended, README updated. (#4) `tempDir()` registers each dir and an `afterEach` in the helper removes them, so `npx vitest run` leaves no `nera-sitemap-*` dirs in `os.tmpdir()`.
 - **Files:** `src/robots.js`, `test/robots.test.js`, `test/helpers.js`, `test/integration.test.js` (only if its own cleanup now double-removes), `README.md`, `ROADMAP.md`

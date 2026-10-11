@@ -684,3 +684,75 @@ Goal (#1 encodePath in joinUrl, #2 protocolLimitWarning + one warn in getAssets,
 ## Step 8 — approved (2026-10-11)
 
 snagio: ticked
+commit: 9fd757a
+
+## Step 9 — started (2026-10-11)
+
+base_sha: 9fd757ad77a858af7e8dc408f9abcb9024945812
+mode: fresh
+
+## Step 9 — implemented (2026-10-11)
+
+base_sha: 9fd757a
+
+### Changed
+- `src/robots.js` — new `themeRobotsPath({ cwd, app })`: `app.theme.package` → its `package.json` resolved with `createRequire` from the **site's** `package.json` (as core's `resolvePackageRoot`), local `./…` theme (`app.theme.name`, `package: null`) → `path.resolve(cwd, name)`; any resolve failure → `null`. `robotsAssets` takes the first regular file of site → theme; a theme file without `Sitemap:` warns "Copy it to <site assets>/robots.txt and add: Sitemap: …" (a package is not the site's to edit).
+- `test/robots.test.js` — `themeRobotsPath` (no theme, resolved from the site not the plugin — `@nera-static/core` is in the plugin's node_modules but resolves to `null`, unresolvable/closed `exports`, local theme) and 4 `robotsAssets` cases (theme file kept, theme warning text, site wins over theme, theme without file / missing → generated).
+- `test/helpers.js` — `tempDir` records each dir; a file-level `afterAll` removes them.
+- `test/integration.test.js` — the four per-suite `afterAll(rmSync)` removed (now the helper's job), `afterAll` import dropped.
+- `ROADMAP.md` — D6 amended (theme paragraph), Slice 9 record, O4 → resolved.
+- `README.md`, `config/sitemap.yaml`, `index.js` header, `CHANGELOG.md` 1.0.0 entry — "site or its theme". Still in the unpublished 1.0.0, so no version bump (as Step 8).
+
+### Fixed alongside
+- none
+
+### Carry forward
+- debt · S · `$TMPDIR` — 680 `nera-sitemap-*` dirs left by earlier runs remain; not deleted (not this run's, removal is the maintainer's call: `rm -rf "$TMPDIR"/nera-sitemap-*`).
+
+### Verification
+```
+npx vitest run → Test Files  7 passed (7) / Tests  113 passed (113)
+npm run lint → eslint . (no output, exit 0)
+ls $TMPDIR | grep -c nera-sitemap- → before=680 after=680
+same count with helpers.js + integration.test.js stashed (base) → base leaks: 42 (those 42 removed afterwards)
+```
+
+### Self-critique
+- Plan said `afterEach`; used a file-level `afterAll` instead: an `afterEach` in the helper would delete the integration suites' `beforeAll` sites after their first test (the plan's named risk, in another form). Relies on vitest's default per-file isolation (no vitest config overrides it) so the helper module and its hook are per file.
+- Covered local `./…` themes too, not only `app.theme.package`: core copies their `assets/` before plugin assets the same way, so it is the same bug; 3 lines. Reviewer may see it as scope — it is inside "a theme's robots.txt".
+- Did not import core's `resolveTheme`: it throws, re-reads theme config, and would couple the plugin to an internal export; a 6-line `createRequire` mirrors its lookup.
+- No integration test through `run()` with a theme package (needs a fake theme with `views/`); unit tests cover the decision, core's copy order is core's contract.
+- Least sure: the theme warning path is `node_modules/@acme/…/assets/robots.txt` relative to cwd — accurate but long.
+
+### Pressure-test questions for the reviewer
+1. Does `themeRobotsPath` resolve from the site even when the plugin itself is `npm link`ed / installed elsewhere (the `@nera-static/core` case in the test is the proof)?
+2. Is a `NERA_THEME` override reflected? Core sets `app.theme.name/package` from the effective spec, so yes — worth a glance.
+3. Can the helper's `afterAll` ever run while cwd is inside a removed dir (`build` restores cwd in `finally`)?
+
+## Step 9 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- none
+
+### Fixed alongside
+- none
+
+### Carry forward
+- bug · S · `src/robots.js:72` — a site `assets/robots.txt` matched by the site's `.neraignore` counts as "the site ships one", so no file reaches `public/` at all (pre-existing since Step 5, not introduced here) — unrelated to this step's goal; needs a decision whether to honour `.neraignore` in the lookup
+
+### Checked
+Goal (#3 theme package + local theme suppress the generated file, site wins; #4 helper-level cleanup) · `npx vitest run` → 7 files / 113 tests passed · `npm run lint` → exit 0, no output · `ls $TMPDIR | grep -c nera-sitemap-` → before=680 after=680 · `themeRobotsPath` compared line by line with core's `resolveTheme`/`resolvePackageRoot` (node_modules/@nera-static/core/src/theme.js:33-66,138-155) and the copy order in src/index.js (theme → plugin assets → site) · Non-negotiables (ROADMAP D6 amended + O4 resolved in the same change, still unpublished 1.0.0 so no bump, hooks sync, no `public/` writes) · Framework correctness (ESM, eslint, no new runtime dep — `module` is a Node builtin) · Tests & hygiene (unit tests for each branch; no integration test with a theme — accepted, the decision is unit-tested and the copy order is core's contract) · scope: `config/sitemap.yaml`, `index.js`, `CHANGELOG.md` outside the Files line but text-only wording sync for the same behaviour — fine; local `./` theme coverage is within "a theme's robots.txt" and mirrors core's `isLocal` branch · self-critique claims: `afterAll` instead of `afterEach` is correct (an `afterEach` would delete the integration suites' `beforeAll` sites); no vitest config overrides per-file isolation (no vitest/vite config, `package.json` has none) · walkthrough n/a
+
+### Answers to the pressure-test questions
+1. Yes. `createRequire(path.join(cwd, 'package.json'))` anchors resolution at the site, exactly as core's `resolvePackageRoot` does; the test resolving `@nera-static/core` (present in the plugin's own node_modules) from a temp site returns `null`, which proves the plugin's tree is not consulted, and an `npm link`ed plugin would not change the anchor.
+2. Yes. Core's `resolveTheme` takes `themeSpec(app, env)` (NERA_THEME over `app.theme`) and src/index.js overwrites `data.app.theme` with `{ name: spec, package: isLocal ? null : packageName(spec), config }` before the plugin pass, so `getAssets` sees the effective theme; bare names arrive already expanded to `@nera-static/theme-<name>` in `package`.
+3. No. `build` chdirs back to the previous cwd in its `finally` (test/helpers.js `build`), no other test file calls `process.chdir` (grep), and the helper's `afterAll` runs after the whole file, so the process cwd is never inside a dir being removed.
+
+## Step 9 — approved (2026-10-11)
+
+snagio: ticked

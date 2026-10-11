@@ -12,6 +12,6 @@ exclude: []
 #   - /drafts/*
 #   - /404.html
 
-# Generate public/robots.txt pointing at the sitemap, unless the site ships
-# its own robots.txt in its assets folder.
+# Generate public/robots.txt pointing at the sitemap, unless the site or its
+# theme ships its own robots.txt.
 robots: true

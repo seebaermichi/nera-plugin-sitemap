@@ -15,5 +15,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -   A build warning when the sitemap exceeds the protocol's limit of 50,000 URLs or 50 MB for one file; the sitemap is still written as one file.
 -   Only rendered pages (with `layout`) are listed, sorted by `href`, duplicates dropped. Frontmatter `sitemap: false`, a `robots` value containing `noindex` (frontmatter, else `robots` in `config/app.yaml`) and `exclude` patterns leave a page out.
 -   `<lastmod>` from frontmatter `lastmod`, `updatedAt` or `date` (a YAML date or a W3C Datetime string); `createdAt` is never used, because core may fill it from the file's creation time.
--   `public/robots.txt` pointing at the sitemap, unless the site ships its own `robots.txt` in its assets folder; a site file without a `Sitemap:` line gets a warning with the line to add.
+-   `public/robots.txt` pointing at the sitemap, unless the site ships its own `robots.txt` in its assets folder or its theme ships one in `assets/`; a file without a `Sitemap:` line gets a warning with the line to add.
 -   `config/sitemap.yaml` with `output` (default `sitemap.xml`), `exclude` (default `[]`) and `robots` (default `true`); an invalid `output` or `exclude` and unknown keys warn and fall back to the default; any `robots` value but `false` counts as `true`.

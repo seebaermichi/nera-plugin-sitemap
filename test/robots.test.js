@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { hasSitemapLine, robotsAssets, robotsTxt, siteRobotsPath } from '../src/robots.js'
+import { hasSitemapLine, robotsAssets, robotsTxt, siteRobotsPath, themeRobotsPath } from '../src/robots.js'
 import { tempDir, write } from './helpers.js'
 
 const SITEMAP_URL = 'https://example.com/sitemap.xml'
@@ -59,6 +59,45 @@ describe('siteRobotsPath', () => {
     })
 })
 
+// An installed theme package in the site's node_modules, as `npm install`
+// leaves it; `app.theme` is what core hands the plugins (`{ name, package }`).
+const installTheme = (pkg, files = {}) => {
+    const root = path.join(cwd, 'node_modules', pkg)
+    write(path.join(root, 'package.json'), JSON.stringify({ name: pkg, version: '1.0.0' }))
+    for (const [rel, content] of Object.entries(files)) write(path.join(root, rel), content)
+    return root
+}
+const themeApp = (pkg) => ({ theme: { name: pkg, package: pkg } })
+
+describe('themeRobotsPath', () => {
+    it('is null without a theme', () => {
+        expect(themeRobotsPath({ cwd, app: {} })).toBe(null)
+        expect(themeRobotsPath({ cwd })).toBe(null)
+    })
+
+    it('resolves a theme package from the site, not from the plugin', () => {
+        const root = installTheme('@acme/theme-x')
+        expect(themeRobotsPath({ cwd, app: themeApp('@acme/theme-x') }))
+            .toBe(path.join(root, 'assets/robots.txt'))
+
+        // Installed next to this plugin, but not in the site: not the site's theme.
+        expect(themeRobotsPath({ cwd, app: themeApp('@nera-static/core') })).toBe(null)
+    })
+
+    it('is null for a theme package that cannot be resolved', () => {
+        expect(themeRobotsPath({ cwd, app: themeApp('@acme/missing') })).toBe(null)
+
+        const root = path.join(cwd, 'node_modules/@acme/closed')
+        write(path.join(root, 'package.json'), JSON.stringify({ name: '@acme/closed', exports: { '.': './index.js' } }))
+        expect(themeRobotsPath({ cwd, app: themeApp('@acme/closed') })).toBe(null)
+    })
+
+    it('resolves a local ./ theme from the site root', () => {
+        const app = { theme: { name: './themes/classic', package: null } }
+        expect(themeRobotsPath({ cwd, app })).toBe(path.join(cwd, 'themes/classic/assets/robots.txt'))
+    })
+})
+
 describe('robotsAssets', () => {
     it('writes the generated file to the cache and returns its entry', () => {
         const entries = robotsAssets({ cwd, app: {}, sitemapUrl: SITEMAP_URL, cacheDir })
@@ -102,5 +141,40 @@ describe('robotsAssets', () => {
         fs.mkdirSync(path.join(cwd, 'assets/robots.txt'), { recursive: true })
         expect(robotsAssets({ cwd, app: {}, sitemapUrl: SITEMAP_URL, cacheDir }))
             .toEqual([{ from: path.join(cacheDir, 'robots.txt'), to: 'robots.txt' }])
+    })
+
+    it('never overrides a theme package\'s robots.txt (ROADMAP O4)', () => {
+        installTheme('@acme/theme-x', { 'assets/robots.txt': 'Sitemap: https://example.com/sitemap.xml\n' })
+        expect(robotsAssets({ cwd, app: themeApp('@acme/theme-x'), sitemapUrl: SITEMAP_URL, cacheDir })).toEqual([])
+        expect(fs.existsSync(path.join(cacheDir, 'robots.txt'))).toBe(false)
+        expect(warn).not.toHaveBeenCalled()
+    })
+
+    it('tells the site to copy a theme\'s robots.txt that has no Sitemap line', () => {
+        installTheme('@acme/theme-x', { 'assets/robots.txt': 'User-agent: *\nDisallow:\n' })
+        expect(robotsAssets({ cwd, app: themeApp('@acme/theme-x'), sitemapUrl: SITEMAP_URL, cacheDir })).toEqual([])
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(warn).toHaveBeenCalledWith(
+            '⚠️ plugin-sitemap: node_modules/@acme/theme-x/assets/robots.txt has no Sitemap line, ' +
+                'so crawlers reading it will not find the sitemap. ' +
+                'Copy it to assets/robots.txt and add: Sitemap: https://example.com/sitemap.xml'
+        )
+    })
+
+    it('checks only the site\'s file when both the site and the theme ship one', () => {
+        installTheme('@acme/theme-x', { 'assets/robots.txt': 'User-agent: *\nDisallow:\n' })
+        write(path.join(cwd, 'assets/robots.txt'), 'Sitemap: https://example.com/sitemap.xml\n')
+        expect(robotsAssets({ cwd, app: themeApp('@acme/theme-x'), sitemapUrl: SITEMAP_URL, cacheDir })).toEqual([])
+        expect(warn).not.toHaveBeenCalled()
+    })
+
+    it('generates the file when the theme ships none or cannot be resolved', () => {
+        installTheme('@acme/theme-x', { 'views/layout.pug': 'p' })
+        const generated = [{ from: path.join(cacheDir, 'robots.txt'), to: 'robots.txt' }]
+        expect(robotsAssets({ cwd, app: themeApp('@acme/theme-x'), sitemapUrl: SITEMAP_URL, cacheDir }))
+            .toEqual(generated)
+        expect(robotsAssets({ cwd, app: themeApp('@acme/missing'), sitemapUrl: SITEMAP_URL, cacheDir }))
+            .toEqual(generated)
+        expect(warn).not.toHaveBeenCalled()
     })
 })

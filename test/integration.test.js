@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { build, tempDir, write } from './helpers.js'
 
 // End to end through core's real pipeline (ROADMAP slice 6): a throwaway
@@ -71,8 +71,6 @@ describe('a bilingual site without config/sitemap.yaml', () => {
         warnings = await build(root)
     }, 60_000)
 
-    afterAll(() => fs.rmSync(root, { recursive: true, force: true }))
-
     it('builds without warnings', () => {
         expect(warnings).toEqual([])
     })
@@ -112,8 +110,6 @@ describe('a site deployed under base_path', () => {
         warnings = await build(root)
     }, 60_000)
 
-    afterAll(() => fs.rmSync(root, { recursive: true, force: true }))
-
     it('builds without warnings', () => {
         expect(warnings).toEqual([])
     })
@@ -144,8 +140,6 @@ describe('a site with its own robots.txt', () => {
         warnings = await build(root)
     }, 60_000)
 
-    afterAll(() => fs.rmSync(root, { recursive: true, force: true }))
-
     it('keeps the site file and warns with the line to add', () => {
         expect(read(root, 'robots.txt')).toBe('User-agent: *\nDisallow: /private.html\n')
         expect(warnings).toEqual([
@@ -168,8 +162,6 @@ describe('a site without an origin', () => {
         makeSite(root, { 'config/app.yaml': 'name: Demo\nlang: en\n' })
         warnings = await build(root)
     }, 60_000)
-
-    afterAll(() => fs.rmSync(root, { recursive: true, force: true }))
 
     it('warns once and writes neither sitemap nor robots.txt (D2)', () => {
         expect(warnings).toHaveLength(1)

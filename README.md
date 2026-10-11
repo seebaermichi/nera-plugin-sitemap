@@ -15,7 +15,7 @@ A plugin for the [Nera](https://github.com/seebaermichi/nera) static site genera
 - Absolute, percent-encoded and XML-escaped URLs that honour `base_path`
 - `<lastmod>` from the page's frontmatter (`lastmod`, `updatedAt` or `date`), never from file dates
 - Pages leave the sitemap with `sitemap: false`, a `noindex` robots value, or an `exclude` pattern
-- A `robots.txt` pointer to the sitemap, unless your site ships its own `robots.txt`
+- A `robots.txt` pointer to the sitemap, unless your site or its theme ships its own `robots.txt`
 - Byte-identical output for the same site, no configuration needed
 
 ## 🚀 Installation
@@ -96,6 +96,7 @@ When a sitemap is written, the plugin also writes `public/robots.txt` (shown abo
 
 - `robots: false` is set in `config/sitemap.yaml`, or
 - your site has its own `robots.txt` in its assets folder (`assets/robots.txt`, or `folders.assets` from `config/app.yaml`). Your file is never replaced. If it has no `Sitemap:` line, the build prints a warning with the exact line to add.
+- your theme ships `assets/robots.txt` (a theme package or a local `./…` theme). The theme's file is kept too; without a `Sitemap:` line the build asks you to copy it into your assets folder and add the line. Your own file wins over the theme's.
 
 Crawlers only read `robots.txt` at the root of a host. On a site deployed under a `base_path` (e.g. `https://example.com/docs/`), the generated `public/robots.txt` ends up at `/docs/robots.txt`, where crawlers do not look. It does no harm there; add the `Sitemap:` line to the host's own `robots.txt` instead, or submit the sitemap in Google Search Console and Bing Webmaster Tools.
 
@@ -113,8 +114,8 @@ exclude: []
 #   - /drafts/*
 #   - /404.html
 
-# Generate public/robots.txt pointing at the sitemap, unless the site ships
-# its own robots.txt in its assets folder.
+# Generate public/robots.txt pointing at the sitemap, unless the site or its
+# theme ships its own robots.txt.
 robots: true
 ```
 

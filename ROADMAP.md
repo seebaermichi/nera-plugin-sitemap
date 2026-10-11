@@ -117,6 +117,8 @@ Sitemap: <origin><basePath>/<output>
 
 written to `.nera-cache/sitemap/robots.txt`, copied to `public/robots.txt`. If the site ships its own `robots.txt` in its assets folder (`app.folders.assets`, default `./assets`, resolved from the site root), the plugin **does not return the entry** — the site's file is deliberate and is never overridden (the copy order would let the site win anyway; skipping it keeps the intent explicit). When that file has no `Sitemap:` line (case-insensitive, at line start), the plugin warns once with the exact line to add.
 
+A theme's `robots.txt` counts the same way (amended 2026-10-11, Step 9, closing O4): core copies theme assets first and plugin assets over them, so a generated file would silently replace the theme's. When the site has no file of its own, the plugin looks for `assets/robots.txt` in the theme root — for `app.theme.package`, the package's `package.json` resolved from the **site** (`createRequire` on the site's `package.json`, as core does), for a local `./…` theme, that path from the site root — and, when it is a regular file, returns no entry. Without a `Sitemap:` line the warning names the theme file and asks for a copy in the site's assets folder with the line added, since a package is not the site's to edit. The site's file still wins over the theme's (only it is checked then). A theme package that cannot be resolved counts as no theme file: core has already failed the build for a `theme:` it cannot resolve.
+
 The `robots.txt` URL is always the site root (`/robots.txt` under `public/`). On a `base_path` deploy crawlers only read `/robots.txt` at the host root, which the site does not control; the generated file is then harmless but unread — the README says so.
 
 ### D7 — Config keys (all optional)
@@ -264,6 +266,12 @@ Not run by the session (never publish or push). In order:
 
 **Done 2026-10-11.** `encodePath` in `src/urls.js` splits on valid `%XX` escapes and runs `encodeURI` on the rest, so it never double-encodes; `joinUrl` applies it to basePath + href, which also covers the `robots.txt` pointer's sitemap URL. `protocolLimitWarning(xml)` in `src/sitemap.js` counts `<url>` elements (a `<` in an href is percent-encoded, so a `<loc>` cannot be miscounted) and `Buffer.byteLength`; `getAssets` passes its message to `warn`. `buildSitemap` keeps returning a string. Note that `<`, `>` and `"` in an href are now percent-encoded rather than XML-escaped.
 
+### Slice 9 — A theme's `robots.txt` and test temp-dir cleanup
+
+- [x] A theme's `robots.txt` counts like the site's own (D6 amended, O4 resolved); `npx vitest run` leaves no `nera-sitemap-*` dirs in the OS temp dir.
+
+**Done 2026-10-11.** `themeRobotsPath` in `src/robots.js`; `robotsAssets` takes the first regular file of site → theme. Tests: `tempDir` in `test/helpers.js` records each dir and a file-level `afterAll` there removes them (after all tests of the importing file, not after each, because the integration suites build their site once in `beforeAll`); the integration suites' own `afterAll` cleanups are gone.
+
 ---
 
 ## Open items
@@ -271,7 +279,7 @@ Not run by the session (never publish or push). In order:
 - **O1 — hreflang alternates in the sitemap** (`xhtml:link`). Needs a reliable way to pair translations; canonical-links pairs them by its `page_identifier` frontmatter key. Additive (minor) when it comes.
 - **O2 — Sitemap index above 50 000 URLs or 50 MB.** The protocol caps one file there (50 MB = 52 428 800 bytes, uncompressed). Since Step 8 (2026-10-11, still in 1.0.0) the build warns once, naming every cap exceeded, and still writes one file; splitting into `sitemap-1.xml…` plus a `<sitemapindex>` is a later minor.
 - **O3 — canonical-links ignores `base_path`** (D2, known divergence). Belongs to `nera-plugin-canonical-links`.
-- **O4 — A theme package's `robots.txt`.** Plugin assets overwrite theme assets, so a robots.txt shipped by an installed theme package (not the site's `theme/assets`) is replaced by the generated one. No theme ships one today; revisit when one does.
+- **O4 — A theme package's `robots.txt`.** Resolved 2026-10-11 (Step 9, still in 1.0.0): a theme's `robots.txt` suppresses the generated one like the site's own (D6).
 
 ## Semver notes for later changes
 

@@ -13,6 +13,7 @@
         ".": "./index.js"
     },
     "files": [
+        "config",
         "index.js",
         "src",
         "CHANGELOG.md"

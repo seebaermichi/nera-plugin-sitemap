@@ -1,0 +1,17 @@
+# @nera-static/plugin-sitemap — every key is optional.
+# Copy this file to your site's config/ folder and edit it there.
+# The site origin comes from `origin` in config/app.yaml (else `app_origin`
+# in config/canonical-links.yaml); without it no sitemap is written.
+
+# Where the sitemap lands, relative to public/. Must stay inside public/
+# (no leading "/", no "..").
+output: sitemap.xml
+
+# Logical hrefs (without base_path) to leave out. "*" matches any characters.
+exclude: []
+#   - /drafts/*
+#   - /404.html
+
+# Generate public/robots.txt pointing at the sitemap, unless the site ships
+# its own robots.txt in its assets folder.
+robots: true

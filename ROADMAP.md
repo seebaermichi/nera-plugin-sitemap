@@ -192,7 +192,9 @@ Each slice is one step of the issue plan (`plans/issues/01a1260d-…-sitemap-xml
 
 ### Slice 4 — Hooks, config and core guard
 
-- [ ] `getAssets` reads the config, resolves the origin, writes the cache file and returns the entry; no origin → warning + `[]`; guard in `getAppData`; `output` cannot escape `public/`.
+- [x] `getAssets` reads the config, resolves the origin, writes the cache file and returns the entry; no origin → warning + `[]`; guard in `getAppData`; `output` cannot escape `public/`.
+
+**Done 2026-10-11.** `src/config.js` (`normalizeConfig`, `loadConfig`, `resolveOrigin`, `safeOutput`) honours `app.folders.config` for both `sitemap.yaml` and `canonical-links.yaml`; the canonical-links file is read only when `app.origin` is missing. `output` is normalized to a POSIX path and rejected (warning, default used) when it is absolute, has a drive letter, climbs out with `..`, or names a directory (`.`, `foo/`) — so the cache write cannot leave `.nera-cache/sitemap/` either. Unknown keys and non-string `exclude` entries warn. `src/guard.js` is code-blocks' guard with the message adapted (no opt-out key). `config/` now ships in `files` so the documented defaults can be copied from the package.
 
 ### Slice 5 — `robots.txt` pointer
 

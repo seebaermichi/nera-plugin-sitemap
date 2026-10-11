@@ -253,3 +253,86 @@ Goal (`buildSitemap` pages → XML per D2–D5, matches ROADMAP "XML shape" byte
 ## Step 3 — approved (2026-10-11)
 
 snagio: ticked
+commit: 99efd7b
+
+## Step 4 — started (2026-10-11)
+
+base_sha: 99efd7be9c08fdac8de8da162e273a23a315b305
+mode: fresh
+
+## Step 4 — implemented (2026-10-11)
+
+base_sha: 99efd7be9c08fdac8de8da162e273a23a315b305
+
+### Changed
+- `index.js` — `getAppData` runs the core guard and returns `app`; `getAssets` loads config, resolves origin, warns + `[]` without one, else writes `.nera-cache/sitemap/<output>` and returns `[{ from, to: output }]`. Both synchronous, array in every branch (also when called without arguments).
+- `src/config.js` — `defaults`, `normalizeConfig` (per-key fallbacks + warnings, unknown keys warn, `null` = absent), `safeOutput` (rejects absolute, drive letter, `..` escape, directories; normalizes to POSIX), `loadConfig` and `resolveOrigin` (`app.origin`, else canonical-links `app_origin`, read only when needed; both honour `app.folders.config`).
+- `src/guard.js` — copied from code-blocks, message adapted (no opt-out key here).
+- `src/warn.js` — fleet-style `⚠️ plugin-sitemap:` prefix (not in the step's file list; same pattern as code-blocks).
+- `config/sitemap.yaml` — documented defaults; `package.json` `files` gains `config` so it ships (like code-blocks).
+- `test/config.test.js`, `test/guard.test.js`, `test/helpers.js`, `test/index.test.js` — config fallbacks/validation, shipped yaml = defaults, origin resolution, guard, hook behaviour incl. old-core throw, missing config, basePath/robots/exclude, escape attempt, no-origin, determinism.
+- `ROADMAP.md` — slice 4 ticked with a dated Done note recording the decisions above.
+
+### Fixed alongside
+- none
+
+### Carry forward
+- design · S · `ROADMAP.md` O2 — "1.0 writes one file and warns when the cap (50 000 URLs / 50 MB) is exceeded" has no plan step; belongs in Step 6/7 or a ROADMAP correction — not in this step's goal.
+
+### Verification
+```
+npx vitest run → Test Files  5 passed (5) / Tests  67 passed (67)
+npm run lint → eslint . (no output, exit 0)
+missing config file → test "works without any config file (all defaults)" passes
+```
+
+### Self-critique
+- `robots` is read and normalized but unused until Step 5 — deliberate, the key belongs to the config contract now.
+- Rejected forbidding every `..` segment outright; `a/../map.xml` normalizes to `map.xml` and stays inside, so it is accepted. A directory-looking `output` (`foo/`, `.`) is rejected too, beyond the ROADMAP table — recorded in the Done note.
+- Non-string `exclude` entries warn (ROADMAP only says "dropped"); a silent drop seemed worse.
+- File-system errors on the cache write are not caught: a failed write should fail the build rather than ship without a sitemap.
+- Least sure: the old-core test fakes `node_modules/@nera-static/core/package.json` in a temp cwd and relies on `createRequire(cwd/package.json)` resolving it first.
+
+### Pressure-test questions for the reviewer
+1. Can any `output` value make `path.resolve(cwd, CACHE_DIR, output)` leave `.nera-cache/sitemap/` (backslashes, `C:`, `..\\`, whitespace)?
+2. Does every `getAssets` branch return an array, including a missing `app`/`pagesData`?
+3. Is reading `canonical-links.yaml` from `app.folders.config` right, given canonical-links itself reads `config/` cwd-relative?
+
+#### UI walkthrough — generated sitemap (short pass)
+Tier 1, Playwright MCP. Throwaway `nera new` site in the scratchpad with the local plugin installed by path (Node 22). The first build without an origin printed the warning and wrote no sitemap. Then `origin: https://nonce-s4k7.example/` and `output: seo/map-s4k7.xml`, `nera serve --port 3124`.
+
+| control | label promises | nonce | observed after | resulting URL | verdict |
+|---|---|---|---|---|---|
+| `output` + `origin` config | sitemap at the configured path with absolute URLs | s4k7 | `text/xml`, 0 parsererror, locs `["https://nonce-s4k7.example/index.html"]` | http://localhost:3124/seo/map-s4k7.xml | ✅ |
+| rebuild | byte-identical output | s4k7 | shasum a7a8d010… before and after `nera build` | — | ✅ |
+
+Console: Total messages: 0 (Errors: 0, Warnings: 0)
+Teardown: browser closed, server on :3124 stopped, temp site deleted.
+
+## Step 4 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- none
+
+### Fixed alongside
+- none
+
+### Carry forward
+- design · S · `ROADMAP.md:216` — O2 says 1.0 warns when one file exceeds 50 000 URLs / 50 MB, but no plan step implements it — fold into Step 6/7 or correct the ROADMAP (already raised by the implementer; decision)
+
+### Checked
+Goal met (getAssets reads config with per-key fallbacks, resolves origin, writes `.nera-cache/sitemap/<output>`, returns `[{ from, to }]`; no origin → warning + `[]`; guard throws on core < 4.13.0) · `npx vitest run` → 5 files / 67 tests passed · `npm run lint` → exit 0 · Non-negotiables (no write into `public/`, sync hooks, right shapes, site config via `getConfig`, ROADMAP Done note written back), Framework correctness (origin order matches canonical-links/validate, `app.basePath` is core's normalized key — `core.js:148`), Tests & hygiene · all self-critique claims verified · walkthrough n/a (short pass in log reads as evidence: nonce, URL, shasum, console, teardown)
+
+### Answers to the pressure-test questions
+1. No. `safeOutput` trims, turns `\` into `/`, rejects a leading `/` (also `\\server\share` → `//…`), any `X:` drive prefix, and anything whose `path.posix.normalize` is `.`, `..` or starts with `../`; so `..\\x.xml`, `C:\\x.xml`, `a/../../x.xml` all fall back to `sitemap.xml` (tested in `test/config.test.js`, and `test/index.test.js` proves no `evil.xml` lands in the site root). Only `app.yaml`-independent `output` feeds the path, and `to` is the same normalized relative string.
+2. Yes. Missing args → default `{ app = {}, pagesData = [] } = {}` (tested). `app: null` reaches `loadConfig`/`resolveOrigin` via `app?.…` → no origin → `[]`. `pagesData: null` with an origin → `buildSitemap` iterates `pagesData || []` (`src/sitemap.js:75`) → empty urlset entry. The only non-array exit is a thrown fs error, deliberately (build should fail).
+3. Defensible and matches the ROADMAP's reference: `@nera-static/validate` resolves `canonical-links.yaml` from `model.folders.config` (`../nera-validate/src/output.js:115`), and core always sets `app.folders.config` (`core.js:141-143`). `plugin-canonical-links` reads `config/` cwd-relative (`index.js:7`), so they diverge only on a site that relocates its config folder — on the default every reader hits the same file.
+
+## Step 4 — approved (2026-10-11)
+
+snagio: ticked

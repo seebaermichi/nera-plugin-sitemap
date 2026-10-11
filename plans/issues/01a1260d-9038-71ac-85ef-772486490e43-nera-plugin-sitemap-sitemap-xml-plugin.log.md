@@ -833,3 +833,77 @@ goal (xhtml:link per translated page, namespace only when used, identifier + can
 ## Step 10 — approved (2026-10-11)
 
 snagio: ticked
+commit: 383fc2f
+
+## Step 11 — started (2026-10-11)
+
+base_sha: 383fc2fe1da3662b0aa3cf3da649781179777fe8
+canonical_links_base_sha: 9851f3e0b6c5942805a207910c1f68cb40ca3ce5
+mode: fresh
+
+## Step 11 — implemented (2026-10-11)
+
+base_sha: 383fc2f (this repo); canonical-links base 9851f3e
+
+### Changed
+- `../nera-plugin-canonical-links/index.js` — new `getBaseUrl(data, origin)` = origin + `app.basePath` (trailing slash trimmed; missing key or `''` → origin unchanged); canonical and alternate hrefs built from it
+- `../nera-plugin-canonical-links/test/canonical-links.unit.test.js` — `getMetaData — base_path` suite: basePath between origin and href (canonical + alternates), trailing slash trimmed, `{ basePath: '' }` and `{}` give exactly the 2.2.2 URLs
+- `../nera-plugin-canonical-links/CHANGELOG.md` — `## [2.2.3] - 2026-10-11` `### Fixed`, states it is a bugfix that changes canonical URLs on `base_path` sites only, byte-identical otherwise
+- `../nera-plugin-canonical-links/README.md` — Generated Output: one paragraph on the `base_path` URL shape
+- `../nera-plugin-canonical-links/package.json`, `package-lock.json` — 2.2.3 via `npm version patch --no-git-tag-version`
+- `ROADMAP.md` — verified-facts origin line, D2 "Known divergence" note replaced, D5 pairing bullet, Slice 11 record, O3 resolved
+- `README.md` — Known limitations: canonical-links divergence now "before 2.2.3"
+
+### Fixed alongside
+- `src/sitemap.js:103` — `pairByAlternateLinks` resolved canonical-links alternates only by `origin + href`; with canonical-links 2.2.3 on a `base_path` site every alternate would have been dropped (sibling surface of this very fix) — now maps both `origin + href` and `origin + basePath + href` (the new form wins on collision); `basePath` threaded through `collectAlternates` — +7/−4 lines — `test/sitemap.test.js` "resolves canonical-links alternates with base_path (canonical-links ≥ 2.2.3)" → fails without the fix (1 failed | 40 passed), passes with it
+
+### Carry forward
+- none
+
+### Verification
+```
+(canonical-links) npx vitest run → Test Files  3 passed (3) / Tests  23 passed (23)
+(canonical-links) without index.js change → Tests  2 failed | 21 passed (23)
+(canonical-links) npm run lint → eslint . (clean)
+(sitemap) npx vitest run → Test Files  7 passed (7) / Tests  128 passed (128)
+(sitemap) npm run lint → eslint . (clean)
+```
+
+### Self-critique
+- Nothing is committed yet, in either repo. The canonical-links change must be committed **in `../nera-plugin-canonical-links`** (index.js, test, CHANGELOG, README, package.json, package-lock.json); the tag `v2.2.3` + push go into the release handover. This repo's commit holds ROADMAP/README/src/test only.
+- Both URL forms accepted in the sitemap: on a `base_path: /sub` site with old canonical-links, a logical page `/sub/x.html` and `/x.html` would collide on `origin/sub/x.html`; the new form wins. Rare (a folder named like the base path), accepted and documented.
+- `getBaseUrl` trims a trailing slash defensively though core already normalizes `basePath` to `''`/`/sub`; it does not add a missing leading slash — core guarantees that, and a non-core value is not worth guessing at.
+- Considered resolving canonical-links alternates by `meta.href` instead of URL string; rejected — the link objects carry only the absolute URL.
+
+### Pressure-test questions for the reviewer
+1. Is a canonical URL change on `base_path` sites really patch? (I classify it as a bugfix: the old URL pointed at a path that does not exist.)
+2. Does any other fleet plugin or `nera-website` read `meta.canonicalLink.href` and add `base_path` itself (double prefix)? Core only rewrites root-relative attributes, so the HTML is safe; I did not grep the whole fleet.
+3. Is the sitemap's both-forms resolution worth keeping, or should 1.0.0 require canonical-links ≥ 2.2.3?
+
+## Step 11 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- none
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none
+
+### Checked
+Goal: canonical/alternate hrefs = origin + app.basePath + meta.href (`../nera-plugin-canonical-links/index.js` `getBaseUrl`), tested, 2.2.3 via npm version (package.json + lockfile both 2.2.3), CHANGELOG `### Fixed` states bugfix/byte-identical; ROADMAP O3 resolved, D2 divergence note replaced, D5 + Slice 11 recorded · Verify run: canonical-links `npx vitest run` → 23 passed, `npm run lint` clean; sitemap `npx vitest run` → 128 passed, `npm run lint` clean · Tests proven: canonical-links with HEAD index.js → 2 failed | 21 passed; sitemap with the basePath `byUrl.set` line removed → 1 failed | 127 passed (both restored, diffs unchanged) · Byte-identical without base_path: core `normalizeBasePath` (generator/src/core.js:57) yields '' for missing/''/'/', `getBaseUrl` returns origin unchanged for '' and for a missing key; pinned by the `it.each([{ basePath: '' }], [{}])` test · Commit location: canonical-links changes are uncommitted in its own working tree (6 files), none in this repo's diff · Conventions: Non-negotiables (ROADMAP updated same change, semver+CHANGELOG, no publish/push, sync hooks), Framework correctness (base_path honoured, deterministic) · Fixed alongside in sitemap.js: same-fix sibling surface, within budget, has a failing-without test, needs no decision · Self-critique claims verified (collision: new form set second so it wins) · walkthrough n/a
+
+### Answers to the pressure-test questions
+1. Patch is right: `meta.href` stays logical/un-prefixed (generator/src/core.js:232), core only prefixes root-relative values (render.js:32), so absolute canonical URLs on base_path sites pointed at a non-deployed path — a bug; no config key, meta shape or markup changes, and root-served sites are byte-identical.
+2. No double prefix in the workspace: the only consumers of `meta.canonicalLink`/`alternateLinks` are canonical-links' own partials and nera-website's vendored copies (`theme/views/vendor/plugin-canonical-links/partials/*.pug`), which print `href` verbatim; nera-website sets no `base_path` anyway (served from nera.js.org root). nera-plugin-tags/README.md:365 only mentions the key in prose. Core's rewrite skips absolute URLs, so the HTML gets exactly one prefix.
+3. Keep both forms: sitemap 1.0.0 then works with any installed canonical-links (sites update plugins independently and the dependency is not declared), at the cost of +1 line and a rare documented collision. Requiring ≥ 2.2.3 would need a peer/engine check this plugin does not have.
+
+## Step 11 — approved (2026-10-11)
+
+snagio: ticked

@@ -55,7 +55,7 @@ No config file is needed; every key has a default (D7).
 - **Only pages with `layout` are rendered** (`render.js#createHtmlFiles`: `if (pageData.meta.layout)`). A page without it has no output file, so it must not appear in the sitemap.
 - **Frontmatter dates are `Date` objects.** Core parses frontmatter with `yaml` 2.x and `{ schema: 'core', customTags: ['timestamp'], merge: true, uniqueKeys: false }`. Checked: unquoted `date: 2026-01-02` → `Date` (`2026-01-02T00:00:00.000Z`), unquoted `2026-01-02T10:00:00Z` → `Date`, quoted `'2026-01-02'` → string. *(The issue plan first assumed the `core` schema alone, which yields strings; the `timestamp` tag overrides that. D4 was decided on the corrected fact.)*
 - **`meta.createdAt` may be the file's birthtime.** `getPagesData` sets `createdAt = frontmatter.createdAt || frontmatter.date || fs.statSync().birthtime`. Both a frontmatter value and the birthtime fallback can be a `Date`, so the plugin cannot tell them apart (D4).
-- **The origin.** Core has no `origin` key of its own. `plugin-canonical-links` uses `app.origin` (config/app.yaml), else `app_origin` from `config/canonical-links.yaml`, with trailing slashes trimmed, and builds `${origin}${meta.href}`. `@nera-static/validate`'s output pass (`src/output.js`) resolves the site's own host the same way.
+- **The origin.** Core has no `origin` key of its own. `plugin-canonical-links` uses `app.origin` (config/app.yaml), else `app_origin` from `config/canonical-links.yaml`, with trailing slashes trimmed, and builds `${origin}${meta.href}` — up to 2.2.2; since 2.2.3 `${origin}${app.basePath}${meta.href}` (O3, 2026-10-11). `@nera-static/validate`'s output pass (`src/output.js`) resolves the site's own host the same way.
 - **Folders.** `app.folders.assets` defaults to `./assets`, becomes `./theme/assets` when a `theme/` folder exists and `folders.assets` is not set (`core.js#computeFolders`). Paths are relative to the site root (the process cwd).
 - **The npm name is free.** `npm view @nera-static/plugin-sitemap` returned 404 on 2026-10-11.
 
@@ -75,7 +75,7 @@ On a core older than 4.13.0 `getAssets` is never called and the build would exit
 
 Without an origin the plugin warns once (naming both places to set it) and produces neither a sitemap nor a `robots.txt`: relative URLs are invalid in a sitemap.
 
-**Known divergence:** `plugin-canonical-links` builds `${origin}${meta.href}` without `app.basePath`, so on a `base_path` site its canonical URLs and this sitemap differ. The sitemap is the one that matches the deployed URLs; the fix belongs in canonical-links (carried forward, not done here). Percent-encoding (Step 8) is no second divergence: canonical-links writes the raw href into an HTML attribute, which browsers and crawlers resolve to the same encoded URL the sitemap names.
+`plugin-canonical-links` builds the same `origin + app.basePath + meta.href` since 2.2.3 (O3, resolved 2026-10-11); up to 2.2.2 it left `base_path` out, so on a `base_path` site its canonical URLs differed from this sitemap's. Percent-encoding (Step 8) is no divergence: canonical-links writes the raw href into an HTML attribute, which browsers and crawlers resolve to the same encoded URL the sitemap names.
 
 ### D3 — Which pages
 
@@ -108,7 +108,7 @@ Amended 2026-10-11 (Step 10, closing O1, still in 1.0.0): every listed page that
 
 Pairing translations:
 
-- When `plugin-canonical-links` has filled a non-empty `meta.alternateLinks` on **any** listed page, its pairing is used for the whole site (it honours its `available_languages` and `page_identifier`). Its `href` is `origin + meta.href` without `base_path` (O3), so each link is resolved back to a listed page by that string and the URL is rebuilt from that page's `meta.href` like `<loc>` (origin + basePath + percent-encoding).
+- When `plugin-canonical-links` has filled a non-empty `meta.alternateLinks` on **any** listed page, its pairing is used for the whole site (it honours its `available_languages` and `page_identifier`). Its `href` is `origin + basePath + meta.href` since canonical-links 2.2.3 and `origin + meta.href` before (O3); both forms are resolved back to a listed page by that string (the current form wins if two pages collide) and the URL is rebuilt from that page's `meta.href` like `<loc>` (origin + basePath + percent-encoding).
 - Otherwise pages are paired by the frontmatter key `alternates_identifier` (default `slug`, canonical-links' default `page_identifier`): listed pages with a language and the same non-empty value form one group. Within a group the first page per language in `href` order wins.
 
 An alternate only ever points at a **listed** page — never at an excluded, `noindex`, `sitemap: false` or layout-less one, and a canonical-links link whose target page has another language than its `hreflang` is dropped. `alternates: false` turns the feature off. No `x-default` entry (no reliable signal for which page is the default).
@@ -301,13 +301,19 @@ Not run by the session (never publish or push). In order:
 
 **Done 2026-10-11.** `collectAlternates` in `src/sitemap.js` pairs the listed pages (only those, so no alternate can point at an unlisted page) either from canonical-links' `meta.alternateLinks` (resolved back to listed hrefs) or by the identifier key; `buildSitemap` writes the links and declares `xmlns:xhtml` only when at least one page has them.
 
+### Slice 11 — canonical-links honours `base_path`
+
+- [x] `../nera-plugin-canonical-links` 2.2.3: canonical and alternate hrefs are `origin + app.basePath + meta.href` (O3 resolved); this plugin resolves canonical-links alternates in both URL forms. Lands in the unpublished 1.0.0 here; canonical-links 2.2.3 is committed in its own repo, tag and push handed over.
+
+**Done 2026-10-11.** `getBaseUrl` in canonical-links' `index.js` (a trailing slash on `basePath` trimmed, a missing key or `''` leaves the origin as is, so a root-served site is byte-identical); `pairByAlternateLinks` in `src/sitemap.js` maps both `origin + href` and `origin + basePath + href` to the listed page.
+
 ---
 
 ## Open items
 
 - **O1 — hreflang alternates in the sitemap** (`xhtml:link`). Resolved 2026-10-11 (Step 10, still in 1.0.0): D5 amended, config keys `alternates` and `alternates_identifier`.
 - **O2 — Sitemap index above 50 000 URLs or 50 MB.** The protocol caps one file there (50 MB = 52 428 800 bytes, uncompressed). Since Step 8 (2026-10-11, still in 1.0.0) the build warns once, naming every cap exceeded, and still writes one file; splitting into `sitemap-1.xml…` plus a `<sitemapindex>` is a later minor.
-- **O3 — canonical-links ignores `base_path`** (D2, known divergence). Belongs to `nera-plugin-canonical-links`.
+- **O3 — canonical-links ignores `base_path`.** Resolved 2026-10-11 (Step 11): `@nera-static/plugin-canonical-links` 2.2.3 (patch, a bugfix) builds `origin + app.basePath + meta.href`; this plugin's alternates pairing accepts that form and the old one, so it works with either canonical-links version.
 - **O4 — A theme package's `robots.txt`.** Resolved 2026-10-11 (Step 9, still in 1.0.0): a theme's `robots.txt` suppresses the generated one like the site's own (D6).
 
 ## Semver notes for later changes

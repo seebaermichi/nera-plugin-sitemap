@@ -351,6 +351,22 @@ describe('hreflang alternates', () => {
         expect(xml).not.toContain('/de/x.html"/>')
     })
 
+    // canonical-links 2.2.3 puts base_path into its hrefs (O3), older
+    // versions do not; both must resolve to the same listed pages.
+    it.each([
+        ['with base_path (canonical-links ≥ 2.2.3)', '/docs'],
+        ['without base_path (canonical-links < 2.2.3)', ''],
+    ])('resolves canonical-links alternates %s', (_, linkBase) => {
+        const alternates = collectAlternates(new Map([
+            ['/a.html', { lang: 'en', alternateLinks: [{ href: `${ORIGIN}${linkBase}/de/a.html`, hreflang: 'de' }] }],
+            ['/de/a.html', { lang: 'de', alternateLinks: [{ href: `${ORIGIN}${linkBase}/a.html`, hreflang: 'en' }] }],
+        ]), { origin: ORIGIN, basePath: '/docs' })
+        expect(alternates.get('/a.html')).toEqual([
+            { hreflang: 'de', href: '/de/a.html' },
+            { hreflang: 'en', href: '/a.html' },
+        ])
+    })
+
     it('drops a canonical-links alternate whose page has another language', () => {
         const alternates = collectAlternates(new Map([
             ['/a.html', { lang: 'en', alternateLinks: [{ href: `${ORIGIN}/de/a.html`, hreflang: 'fr' }] }],

@@ -164,7 +164,7 @@ The plugin writes its files to `.nera-cache/sitemap/` in your site (ignored by g
 ## Known limitations
 
 - One sitemap file. The protocol allows at most 50,000 URLs or 50 MB per file. Above either limit the build prints a warning and still writes one file; a sitemap index for larger sites is not written yet.
-- `@nera-static/plugin-canonical-links` does not add `base_path` to its canonical URLs, so on a `base_path` site the two disagree. The sitemap's URLs are the deployed ones.
+- On a `base_path` site, `@nera-static/plugin-canonical-links` before 2.2.3 leaves `base_path` out of its canonical URLs, so they disagree with the sitemap, whose URLs are the deployed ones. Update it to 2.2.3 or later; the sitemap's alternates work with either version.
 
 ## Compatibility
 

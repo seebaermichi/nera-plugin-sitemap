@@ -128,7 +128,7 @@ Publishing, pushing and the catalog commits in other repos are handed over, not 
 - **Risks:** canonical-links' `alternateLinks` lacking `base_path` (Step 11) — build from `meta.href`, not its `href`
 - **Walkthrough:** none
 
-### Step 11 — canonical-links honours `base_path` (triage #6, ROADMAP O3) — ⬜ todo
+### Step 11 — canonical-links honours `base_path` (triage #6, ROADMAP O3) — ✅ done
 
 - **Goal:** in `../nera-plugin-canonical-links`, canonical and alternate hrefs are `origin + app.basePath + meta.href`, matching the sitemap on a `base_path` site; a test pins it; patch version bump + CHANGELOG `### Fixed` in that repo (no publish — the tag/push goes into the release handover); this repo's ROADMAP O3 → resolved and D2's "known divergence" note removed.
 - **Files:** `../nera-plugin-canonical-links/index.js`, its test file, its `CHANGELOG.md` + `package.json`/`package-lock.json` (via `npm version patch --no-git-tag-version`), `ROADMAP.md`

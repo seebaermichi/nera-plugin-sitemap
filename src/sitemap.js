@@ -94,13 +94,16 @@ function pairByIdentifier(listed, identifier, langOf) {
 }
 
 // Translations taken from plugin-canonical-links' `meta.alternateLinks`
-// (O1). Its `href` is `origin + meta.href` without base_path (O3), so each
-// one is resolved back to a listed page and the URL is rebuilt from that
-// page's `href`; a link to an unlisted page (excluded, no layout) or to a
-// page in another language than its `hreflang` is dropped.
-function pairByAlternateLinks(listed, origin, langOf) {
+// (O1). Its `href` is `origin + basePath + meta.href` since canonical-links
+// 2.2.3 and `origin + meta.href` before it (O3), unencoded either way, so
+// both forms are resolved back to a listed page (the current one wins if
+// they collide) and the URL is rebuilt from that page's `href`; a link to
+// an unlisted page (excluded, no layout) or to a page in another language
+// than its `hreflang` is dropped.
+function pairByAlternateLinks(listed, origin, basePath, langOf) {
     const byUrl = new Map()
     for (const href of listed.keys()) byUrl.set(`${origin}${href}`, href)
+    for (const href of listed.keys()) byUrl.set(`${origin}${basePath}${href}`, href)
 
     const translations = new Map()
     for (const [href, meta] of listed) {
@@ -127,16 +130,16 @@ function pairByAlternateLinks(listed, origin, langOf) {
  * key `identifier`. A page's language is `meta.lang`, else the site's `lang`.
  *
  * @param {Map<string, object>} listed listed pages, href → meta, in href order
- * @param {{ origin: string, lang?: string, identifier?: string }} options
+ * @param {{ origin: string, basePath?: string, lang?: string, identifier?: string }} options
  * @returns {Map<string, Array<{ hreflang: string, href: string }>>}
  */
-export function collectAlternates(listed, { origin, lang, identifier = 'slug' }) {
+export function collectAlternates(listed, { origin, basePath = '', lang, identifier = 'slug' }) {
     const langOf = (meta) =>
         (nonEmptyString(meta.lang) && meta.lang) || (nonEmptyString(lang) && lang) || ''
     const fromLinks = [...listed.values()]
         .some((meta) => Array.isArray(meta.alternateLinks) && meta.alternateLinks.length > 0)
     const translations = fromLinks
-        ? pairByAlternateLinks(listed, origin, langOf)
+        ? pairByAlternateLinks(listed, origin, basePath || '', langOf)
         : pairByIdentifier(listed, identifier, langOf)
 
     const alternates = new Map()
@@ -183,7 +186,7 @@ export function buildSitemap(pagesData, {
     const listed = new Map([...byHref].sort(([a], [b]) => byString(a, b)))
     const alternatesOf = alternates === false
         ? new Map()
-        : collectAlternates(listed, { origin, lang, identifier })
+        : collectAlternates(listed, { origin, basePath, lang, identifier })
     const url = (href) => escapeXml(joinUrl(origin, basePath, href))
 
     const body = []

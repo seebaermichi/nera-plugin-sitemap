@@ -69,13 +69,13 @@ The XML is built in `getAssets`, the only hook that sees the final page list (ot
 
 On a core older than 4.13.0 `getAssets` is never called and the build would exit 0 without a sitemap, so the plugin fails loudly with the version guard from `plugin-code-blocks` (`src/guard.js`). Because the guard cannot live in a hook that is never called, it runs in `getAppData` (returning `app` unchanged). `peerDependencies` declares `@nera-static/core >=4.13.0` for install time.
 
-### D2 — URLs = origin + basePath + `meta.href`, verbatim
+### D2 — URLs = origin + basePath + `meta.href`, percent-encoded
 
-`<loc>` is `origin + app.basePath + meta.href`. The origin comes from `app.origin`, else `app_origin` in `config/canonical-links.yaml` (same order as canonical-links and validate), trailing slashes trimmed. `/index.html` is kept as is (not shortened to `/`), so the sitemap names the same URL the site links to. Each `<loc>` is XML-escaped (`&`, `<`, `>`, `'`, `"`).
+`<loc>` is `origin + app.basePath + meta.href`. The origin comes from `app.origin`, else `app_origin` in `config/canonical-links.yaml` (same order as canonical-links and validate), trailing slashes trimmed. `/index.html` is kept as is (not shortened to `/`), so the sitemap names the same URL the site links to. basePath + href are percent-encoded first (amended 2026-10-11, Step 8): `pages/about us.md` → `/about%20us.html`, `über.md` → `/%C3%BCber.html`, characters `encodeURI` does not allow become UTF-8 escapes, a `%` that does not start a valid `%XX` becomes `%25`, and an existing valid escape is left alone, so an already-encoded href is never encoded twice. Lone surrogates become U+FFFD rather than crashing the build. The origin is used as given. Then each `<loc>` is XML-escaped (`&`, `<`, `>`, `'`, `"` — after encoding only `&` and `'` can remain). `exclude` patterns (D3) still match the logical, unencoded `meta.href`.
 
 Without an origin the plugin warns once (naming both places to set it) and produces neither a sitemap nor a `robots.txt`: relative URLs are invalid in a sitemap.
 
-**Known divergence:** `plugin-canonical-links` builds `${origin}${meta.href}` without `app.basePath`, so on a `base_path` site its canonical URLs and this sitemap differ. The sitemap is the one that matches the deployed URLs; the fix belongs in canonical-links (carried forward, not done here).
+**Known divergence:** `plugin-canonical-links` builds `${origin}${meta.href}` without `app.basePath`, so on a `base_path` site its canonical URLs and this sitemap differ. The sitemap is the one that matches the deployed URLs; the fix belongs in canonical-links (carried forward, not done here). Percent-encoding (Step 8) is no second divergence: canonical-links writes the raw href into an HTML attribute, which browsers and crawlers resolve to the same encoded URL the sitemap names.
 
 ### D3 — Which pages
 
@@ -158,7 +158,7 @@ Frontmatter keys the plugin reads: `layout`, `href` (from core), `sitemap`, `rob
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-        <loc>{escaped absolute URL}</loc>
+        <loc>{percent-encoded, XML-escaped absolute URL}</loc>
         <lastmod>{W3C date}</lastmod>   <!-- only when D4 finds one -->
     </url>
 </urlset>
@@ -258,12 +258,18 @@ Not run by the session (never publish or push). In order:
       url: https://github.com/seebaermichi/nera-plugin-sitemap
 ```
 
+### Slice 8 — Valid `<loc>` URLs and the protocol-cap warning
+
+- [x] Percent-encoding in `joinUrl` (D2 amended), and one warning above 50 000 URLs or 50 MB (O2). Both land in the unpublished 1.0.0.
+
+**Done 2026-10-11.** `encodePath` in `src/urls.js` splits on valid `%XX` escapes and runs `encodeURI` on the rest, so it never double-encodes; `joinUrl` applies it to basePath + href, which also covers the `robots.txt` pointer's sitemap URL. `protocolLimitWarning(xml)` in `src/sitemap.js` counts `<url>` elements (a `<` in an href is percent-encoded, so a `<loc>` cannot be miscounted) and `Buffer.byteLength`; `getAssets` passes its message to `warn`. `buildSitemap` keeps returning a string. Note that `<`, `>` and `"` in an href are now percent-encoded rather than XML-escaped.
+
 ---
 
 ## Open items
 
 - **O1 — hreflang alternates in the sitemap** (`xhtml:link`). Needs a reliable way to pair translations; canonical-links pairs them by its `page_identifier` frontmatter key. Additive (minor) when it comes.
-- **O2 — Sitemap index above 50 000 URLs or 50 MB.** The protocol caps one file there. 1.0 writes one file and does not check the cap (no warning; the README names the limit); splitting into `sitemap-1.xml…` plus a `<sitemapindex>` is a later minor.
+- **O2 — Sitemap index above 50 000 URLs or 50 MB.** The protocol caps one file there (50 MB = 52 428 800 bytes, uncompressed). Since Step 8 (2026-10-11, still in 1.0.0) the build warns once, naming every cap exceeded, and still writes one file; splitting into `sitemap-1.xml…` plus a `<sitemapindex>` is a later minor.
 - **O3 — canonical-links ignores `base_path`** (D2, known divergence). Belongs to `nera-plugin-canonical-links`.
 - **O4 — A theme package's `robots.txt`.** Plugin assets overwrite theme assets, so a robots.txt shipped by an installed theme package (not the site's `theme/assets`) is replaced by the generated one. No theme ships one today; revisit when one does.
 

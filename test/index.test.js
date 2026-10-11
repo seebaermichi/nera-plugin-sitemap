@@ -142,4 +142,13 @@ describe('getAssets', () => {
         plugin.getAssets({ ...args, pagesData: [...args.pagesData].reverse() })
         expect(fs.readFileSync(first.from, 'utf-8')).toBe(once)
     })
+
+    it('warns above the protocol cap and still writes one sitemap', () => {
+        const pagesData = Array.from({ length: 50001 }, (_, index) => page(`/p${index}.html`))
+        const [entry] = plugin.getAssets({ app: { origin: 'https://example.com' }, pagesData })
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(warn.mock.calls[0][0]).toMatch(/plugin-sitemap: the sitemap has 50001 URLs \(limit 50000\)/)
+        expect(entry.to).toBe('sitemap.xml')
+        expect(fs.existsSync(entry.from)).toBe(true)
+    })
 })

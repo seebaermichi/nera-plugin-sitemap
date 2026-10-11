@@ -12,7 +12,7 @@ A plugin for the [Nera](https://github.com/seebaermichi/nera) static site genera
 ## ✨ Features
 
 - One `sitemap.xml` built from the final page list, including pages other plugins generate (e.g. tag overview pages)
-- Absolute, XML-escaped URLs that honour `base_path`
+- Absolute, percent-encoded and XML-escaped URLs that honour `base_path`
 - `<lastmod>` from the page's frontmatter (`lastmod`, `updatedAt` or `date`), never from file dates
 - Pages leave the sitemap with `sitemap: false`, a `noindex` robots value, or an `exclude` pattern
 - A `robots.txt` pointer to the sitemap, unless your site ships its own `robots.txt`
@@ -132,7 +132,7 @@ The plugin writes its files to `.nera-cache/sitemap/` in your site (ignored by g
 
 ## Known limitations
 
-- One sitemap file. The protocol allows at most 50,000 URLs or 50 MB per file; a sitemap index for larger sites is not written yet.
+- One sitemap file. The protocol allows at most 50,000 URLs or 50 MB per file. Above either limit the build prints a warning and still writes one file; a sitemap index for larger sites is not written yet.
 - `@nera-static/plugin-canonical-links` does not add `base_path` to its canonical URLs, so on a `base_path` site the two disagree. The sitemap's URLs are the deployed ones.
 
 ## Compatibility

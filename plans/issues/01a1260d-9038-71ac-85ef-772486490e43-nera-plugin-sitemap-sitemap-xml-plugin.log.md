@@ -573,3 +573,114 @@ goal (README/CHANGELOG/ROADMAP handover + catalogs) · `npx vitest run` 92/92, `
 ## Step 7 — approved (2026-10-11)
 
 snagio: ticked
+commit: 69ef719
+
+## Browser test (2026-10-11)
+
+- **Result:** PASSED — sitemap.xml and robots.txt correct in a throwaway scaffolded site, with and without base_path
+- **Guide:** plans/issues/browser-tests/01a1260d-9038-71ac-85ef-772486490e43-nera-plugin-sitemap-sitemap-xml-plugin.md
+- **Base URL / roles:** http://localhost:3124/ · crawler (anonymous)
+- **AC source:** plan + snapshot 2026-10-11 (AC 1, 4, 5 not browser-visible, left to the review loop)
+- **Tested by:** Claude (Playwright MCP)
+
+| TC | AC (short) | Status | Evidence |
+|---|---|---|---|
+| TC-1 | valid sitemaps.org XML, absolute URLs | PASS | 200 text/xml, 0 parse errors, urlset in 0.9 ns, 3 locs under https://example.com/, sorted, lastmod from frontmatter |
+| TC-2 | URLs escaped | PASS | source `a&amp;b.html`, parses to `a&b.html` |
+| TC-3 | excluded pages absent | PASS | `sitemap: false` and `robots: noindex` pages missing from sitemap, both still 200 |
+| TC-4 | base_path-aware | PASS | all locs `https://example.com/sub/…`, no double slash |
+| TC-5 | robots.txt pointer | PASS | `User-agent: *` / `Allow: /` / `Sitemap: <absolute sitemap url>` (follows base_path) |
+| TC-6 | site's own robots.txt wins | PASS | `theme/assets/robots.txt` served unchanged, build warns with the `Sitemap:` line to add |
+
+### Carry forward
+- none
+
+## Triage (2026-10-11)
+
+| # | item | from | disposition | why |
+|---|---|---|---|---|
+| 1 | bug · `src/urls.js:27` — `<loc>` is `meta.href` verbatim; `pages/about us.md` yields an invalid URL | Step 6 — implemented | fix | default: percent-encode disallowed characters, keep existing `%XX` (no double-encoding); amend D2 |
+| 2 | design · `src/sitemap.js` — no warning above 50 000 URLs / 50 MB (O2 says none) | Step 4 — implemented/reviewed, Step 7 | fix | default: warn once above the cap, still write one file; into the unpublished 1.0.0 entry |
+| 3 | design · `src/robots.js:41` — an installed theme package's `robots.txt` is overwritten (O4) | Step 5 — reviewed | fix | default: a theme package's robots.txt (via `app.theme.package`) counts as deliberate, like the site's own |
+| 4 | debt · `test/helpers.js:16` — unit suites leak 33 temp dirs per run | Step 6 — reviewed | fix | `afterEach` cleanup in the helper |
+| 5 | design · `src/sitemap.js` — hreflang `xhtml:link` alternates (O1) | Plan cut scope | fix | user overruled `file`: pair translations by canonical-links' `page_identifier`, opt-in |
+| 6 | bug · `../nera-plugin-canonical-links/index.js:63` — canonical URLs ignore `base_path` (O3) | Step 1 — implemented | fix | user overruled `file`: fixed in that repo, its release handed over |
+
+Already done / elsewhere: sitemap index splitting (O2) — no Nera site near the cap, stays in ROADMAP O2; catalog entries + `ROADMAP-ai.md` L8 status/pointer — reconciliation / release handover.
+Planning signal: the plan missed the protocol's hard constraints (valid URLs, the cap, alternates) and the theme asset layer as part of its frame.
+
+## Decision (2026-10-11)
+
+- Triage: user chose "fix everything, file nothing" — items 5 (hreflang alternates) and 6 (canonical-links `base_path`) overruled from `file` to `fix`.
+
+## Step 8 — started (2026-10-11)
+
+base_sha: 69ef719382632e25c9f050d8e9b07de3bfc0c0e0
+mode: fresh
+
+## Step 8 — implemented (2026-10-11)
+
+base_sha: 69ef719
+
+### Changed
+- `src/urls.js` — new `encodePath` (split on valid `%XX`, `encodeURI` the rest, `toWellFormed()` first); `joinUrl` encodes basePath + href, origin as given (#1)
+- `src/sitemap.js` — `MAX_URLS`, `MAX_BYTES` (52 428 800) and pure `protocolLimitWarning(xml)` counting `<url>` and `Buffer.byteLength` (#2); `buildSitemap` still returns a string
+- `index.js` — `getAssets` warns once with that message, then writes the one file as before
+- `test/urls.test.js` — space, umlaut, emoji (surrogate pair), existing `%20`/lowercase `%c3%bc`, mixed, lone `%`/`%2`, delimiters + `&`/`'` kept, lone surrogate; `joinUrl` encodes basePath/href not origin
+- `test/sitemap.test.js` — encode-then-escape in `<loc>`, `exclude` matches the unencoded href, cap warning on URL count, on bytes (in memory only), bytes-not-chars; old "escapes the URL" expectation updated (`<`,`>`,`"` are now `%3C`,`%3E`,`%22`)
+- `test/index.test.js` — 50 001 pages → exactly one warning, sitemap still written (~3 MB in the temp dir)
+- `ROADMAP.md` — D2 heading/text amended, XML-shape placeholder, O2 rewritten, new Slice 8 record
+- `README.md`, `CHANGELOG.md` — encoding and the cap warning in the unpublished `## [1.0.0]` entry
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none
+
+### Verification
+```
+npx vitest run → Tests  105 passed (105)   (Node 20.20.0; same on Node 22.22.0)
+npm run lint → eslint . (no output, exit 0)
+```
+
+### Self-critique
+- Considered encoding in `buildSitemap` only; put it in `joinUrl` instead so the `robots.txt` `Sitemap:` URL (built with `joinUrl`) is encoded the same way.
+- Considered returning `{ xml, count }` from `buildSitemap`; rejected to keep its contract/tests stable — counting `<url>` in the final string is exact because `<` in an href is percent-encoded (and would be XML-escaped anyway).
+- Behaviour change for hrefs with `<`, `>`, `"`: now percent-encoded instead of `&lt;`/`&gt;`/`&quot;` — both valid; encoded is what a browser would request.
+- Least sure: `encodeURI` keeps `?` and `#` literal, so a filename containing `#` yields a URL with a fragment. Core's own links would have the same issue; core's `href` comes from file names, where `#` is rare. Not changed.
+- `toWellFormed` needs Node ≥ 20 (V8 11.x); our floor is 20.19, verified on 20.20.
+- The 50 001-page index test writes ~3 MB to a temp dir and runs in well under a second; the 50 MB case is unit-tested in memory only.
+
+### Pressure-test questions for the reviewer
+1. Is there any input where `encodePath` double-encodes (e.g. `%%20`, `%2520`)? `%%20` → `%25%20`, `%2520` stays — please confirm that is the intended reading.
+2. Does any existing site link a page whose href would change visibly in the sitemap (spaces/non-ASCII) so it no longer equals canonical-links' URL? (canonical-links does not encode — a new divergence on such pages; worth a note in O3 or not?)
+3. Is the cap-warning wording clear enough to act on in a build log?
+
+## Step 8 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- `ROADMAP.md:78` — one sentence in the D2 "Known divergence" paragraph: percent-encoding is no second divergence from canonical-links (raw href in an HTML attribute resolves to the same encoded URL) — `npx vitest run && npm run lint` → 105 passed, lint clean
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none
+
+### Checked
+Goal (#1 encodePath in joinUrl, #2 protocolLimitWarning + one warn in getAssets, D2/O2/README/CHANGELOG 1.0.0 updated) · `npx vitest run` → 105 passed, `npm run lint` → clean · Non-negotiables, Framework correctness, Tests & hygiene: hooks sync, nothing into public/, no new dependency, deterministic output, CHANGELOG under unpublished 1.0.0 (no bump owed) · review-hardest: no double-encoding (probed), `escapeXml(joinUrl(...))` at `src/sitemap.js:94` so escaping runs after encoding, `isExcluded(meta.href, …)` at `src/sitemap.js:65` on the unencoded href, pinned by a test · self-critique: `toWellFormed` available on Node 20; robots pointer uses `joinUrl`; `<url>` count safe since `<` is encoded · walkthrough n/a. Noted, not filed: dedup is on the raw href, so `/a b.html` and `/a%20b.html` (two source files) would give two identical `<loc>`s — needs both spellings as file names, not realistic.
+
+### Answers to the pressure-test questions
+1. No double-encoding found. Probed: `/%%20` → `/%25%20` (lone `%` encoded, valid `%20` kept), `/%2520` stays (it is a valid escape of `%` followed by `20` — the intended reading), `/a b%` → `/a%20b%25`, `/%zz` → `/%25zz`, `/ü%C3%BC` → `/%C3%BC%C3%BC`.
+2. Not a visible divergence: canonical-links (`../nera-plugin-canonical-links/index.js:50,63`) writes `${origin}${meta.href}` raw into `<link href>`; HTML URL parsing percent-encodes space/non-ASCII, so crawlers see the same URL as the sitemap. Recorded in ROADMAP D2 (fixed in review); no O3 change needed.
+3. Yes: "plugin-sitemap: the sitemap has 50001 URLs (limit 50000), above the sitemaps.org limit for one file, so search engines may ignore it. It was written as one file anyway; a sitemap index is not supported yet." It names the measured value, the limit, the consequence and the state of the output.
+
+## Step 8 — approved (2026-10-11)
+
+snagio: ticked

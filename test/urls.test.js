@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { escapeXml, isExcluded, joinUrl, matchesPattern, trimOrigin } from '../src/urls.js'
+import { encodePath, escapeXml, isExcluded, joinUrl, matchesPattern, trimOrigin } from '../src/urls.js'
 
 describe('trimOrigin', () => {
     it('drops trailing slashes and surrounding whitespace', () => {
@@ -24,6 +24,40 @@ describe('joinUrl', () => {
 
     it('puts the basePath between origin and href', () => {
         expect(joinUrl('https://example.com', '/docs', '/index.html')).toBe('https://example.com/docs/index.html')
+    })
+
+    it('percent-encodes basePath and href, but not the origin', () => {
+        expect(joinUrl('https://example.com', '/my docs', '/about us.html')).toBe('https://example.com/my%20docs/about%20us.html')
+        expect(joinUrl('https://example.com', '', '/about%20us.html')).toBe('https://example.com/about%20us.html')
+    })
+})
+
+describe('encodePath', () => {
+    it('encodes a space, an umlaut and an emoji (surrogate pair) as UTF-8', () => {
+        expect(encodePath('/about us.html')).toBe('/about%20us.html')
+        expect(encodePath('/über.html')).toBe('/%C3%BCber.html')
+        expect(encodePath('/😀.html')).toBe('/%F0%9F%98%80.html')
+    })
+
+    it('leaves a valid escape alone instead of encoding it twice', () => {
+        expect(encodePath('/about%20us.html')).toBe('/about%20us.html')
+        expect(encodePath('/%c3%bcber.html')).toBe('/%c3%bcber.html')
+        expect(encodePath('/a%20b c.html')).toBe('/a%20b%20c.html')
+    })
+
+    it('encodes a % that does not start a valid escape', () => {
+        expect(encodePath('/100%.html')).toBe('/100%25.html')
+        expect(encodePath('/50%off.html')).toBe('/50%25off.html')
+        expect(encodePath('/%2.html')).toBe('/%252.html')
+    })
+
+    it('keeps URL delimiters and XML special characters for escapeXml', () => {
+        expect(encodePath('/a/b-c_d.e~f.html?x=1&y=2#top')).toBe('/a/b-c_d.e~f.html?x=1&y=2#top')
+        expect(encodePath('/it\'s.html')).toBe('/it\'s.html')
+    })
+
+    it('replaces a lone surrogate instead of throwing', () => {
+        expect(encodePath('/\uD800.html')).toBe('/%EF%BF%BD.html')
     })
 })
 

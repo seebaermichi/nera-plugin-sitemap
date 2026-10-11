@@ -11,7 +11,7 @@ import path from 'path'
 import { loadConfig, resolveOrigin } from './src/config.js'
 import { assertCoreVersion, coreVersion } from './src/guard.js'
 import { robotsAssets } from './src/robots.js'
-import { buildSitemap } from './src/sitemap.js'
+import { buildSitemap, protocolLimitWarning } from './src/sitemap.js'
 import { joinUrl } from './src/urls.js'
 import { warn } from './src/warn.js'
 
@@ -41,6 +41,8 @@ export function getAssets({ app = {}, pagesData = [] } = {}) {
         robots: app.robots,
         exclude: config.exclude,
     })
+    const limitWarning = protocolLimitWarning(xml)
+    if (limitWarning) warn(limitWarning)
     const cacheDir = path.resolve(cwd, CACHE_DIR)
     const from = path.resolve(cacheDir, config.output)
     fs.mkdirSync(path.dirname(from), { recursive: true })

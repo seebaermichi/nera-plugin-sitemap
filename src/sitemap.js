@@ -6,6 +6,12 @@ import { escapeXml, isExcluded, joinUrl } from './urls.js'
 
 const NAMESPACE = 'http://www.sitemaps.org/schemas/sitemap/0.9'
 
+/** The protocol's cap for one sitemap file: 50,000 URLs (ROADMAP O2). */
+export const MAX_URLS = 50000
+
+/** The protocol's cap for one uncompressed sitemap file: 50 MB (O2). */
+export const MAX_BYTES = 50 * 1024 * 1024
+
 // W3C Datetime: YYYY, YYYY-MM, YYYY-MM-DD, or a date with
 // Thh:mm[:ss[.s]] and a Z/±hh:mm offset.
 const W3C_DATETIME = new RegExp(
@@ -92,4 +98,22 @@ export function buildSitemap(pagesData, { origin, basePath = '', robots, exclude
     }
     lines.push('</urlset>')
     return `${lines.join('\n')}\n`
+}
+
+/**
+ * A warning naming every protocol cap the sitemap `xml` exceeds, or null
+ * when it is within both (O2). The file is still written as one; this
+ * only tells the site owner that search engines may ignore it.
+ */
+export function protocolLimitWarning(xml) {
+    // `<url>` cannot occur inside a <loc>: joinUrl percent-encodes `<`.
+    const urls = (xml.match(/<url>/g) || []).length
+    const bytes = Buffer.byteLength(xml)
+    const exceeded = []
+    if (urls > MAX_URLS) exceeded.push(`${urls} URLs (limit ${MAX_URLS})`)
+    if (bytes > MAX_BYTES) exceeded.push(`${bytes} bytes (limit ${MAX_BYTES})`)
+    if (exceeded.length === 0) return null
+    return `the sitemap has ${exceeded.join(' and ')}, above the sitemaps.org ` +
+        'limit for one file, so search engines may ignore it. It was written ' +
+        'as one file anyway; a sitemap index is not supported yet.'
 }

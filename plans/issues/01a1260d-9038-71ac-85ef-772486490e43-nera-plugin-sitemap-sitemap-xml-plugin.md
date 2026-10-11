@@ -100,3 +100,39 @@ Publishing, pushing and the catalog commits in other repos are handed over, not 
 - **Review hardest:** catalog descriptions contain no raw `: `; README config table matches `src/config.js`
 - **Risks:** README promising behaviour the code does not have
 - **Walkthrough:** none
+
+### Step 8 — Valid `<loc>` URLs and the protocol-cap warning (triage #1, #2) — ✅ done
+
+- **Goal:** (#1) `joinUrl` percent-encodes characters not allowed in a URL (space, non-ASCII, …) and leaves an existing `%XX` untouched, so `pages/about us.md` → `<loc>…/about%20us.html</loc>` and an already-encoded href is not double-encoded; D2 amended. (#2) the build warns once when the sitemap exceeds 50 000 URLs or 50 MB and still writes one file; ROADMAP O2 and README say so; the warning goes into the unpublished `## [1.0.0]` CHANGELOG entry.
+- **Files:** `src/urls.js`, `src/sitemap.js` (or `index.js`, wherever the XML string is final), `test/urls.test.js`, `test/sitemap.test.js`, `README.md`, `CHANGELOG.md`, `ROADMAP.md`
+- **Verify:** `npx vitest run && npm run lint` — green; tests pin a space, an umlaut, an emoji (surrogate pair), an already-encoded `%20`, a literal `%` not followed by two hex digits, and the cap warning on both limits (URL count and bytes) without writing 50 MB to disk
+- **Review hardest:** no double-encoding; `escapeXml` still runs after encoding; `exclude` patterns still match the logical (unencoded) href
+- **Risks:** changing hrefs the site's own links use verbatim; a slow cap test
+- **Walkthrough:** none
+
+### Step 9 — A theme package's robots.txt and test temp-dir cleanup (triage #3, #4) — ⬜ todo
+
+- **Goal:** (#3) when `app.theme.package` names an installed theme whose `assets/robots.txt` exists, the plugin treats it like the site's own file (no generated pointer, warn when it lacks a `Sitemap:` line); the site's own file still wins; ROADMAP O4 → resolved, D6 amended, README updated. (#4) `tempDir()` registers each dir and an `afterEach` in the helper removes them, so `npx vitest run` leaves no `nera-sitemap-*` dirs in `os.tmpdir()`.
+- **Files:** `src/robots.js`, `test/robots.test.js`, `test/helpers.js`, `test/integration.test.js` (only if its own cleanup now double-removes), `README.md`, `ROADMAP.md`
+- **Verify:** `npx vitest run && npm run lint` — green; `ls $TMPDIR | grep -c nera-sitemap-` unchanged before vs after a run
+- **Review hardest:** resolving the theme package from the site's cwd (not the plugin's own `node_modules`); a missing/unresolvable theme package falls back silently to the generated file
+- **Risks:** `afterEach` removing a dir while the cwd is still inside it
+- **Walkthrough:** none
+
+### Step 10 — hreflang alternates in the sitemap (triage #5, ROADMAP O1) — ⬜ todo
+
+- **Goal:** a multilingual site gets `xhtml:link rel="alternate" hreflang="…"` entries per `<url>` (plus `xmlns:xhtml` on `<urlset>`) for every translation of that page, including itself. Translations come from `meta.alternateLinks` when `plugin-canonical-links` ran first (it does: alphabetical order), else are paired by the frontmatter key `alternates_identifier` (default `slug`, the same as canonical-links' `page_identifier`). New config key `alternates` (`auto` default: written only when a page has ≥ 2 languages; `false` disables). Hrefs go through the same origin + basePath + encoding as `<loc>`. D5 amended, O1 resolved, README config table, CHANGELOG 1.0.0 entry.
+- **Files:** `src/sitemap.js`, `src/config.js`, `test/sitemap.test.js`, `test/config.test.js`, `README.md`, `ROADMAP.md` (+ `CHANGELOG.md`)
+- **Verify:** `npx vitest run && npm run lint` — green; tests cover a monolingual site (no `xmlns:xhtml`, output unchanged), en/de/es pairing, an untranslated page, an excluded translation (no alternate pointing at it), `alternates: false`
+- **Review hardest:** no alternate points at an excluded or unrendered (`layout`-less) page; deterministic order; output byte-identical for monolingual sites
+- **Risks:** canonical-links' `alternateLinks` lacking `base_path` (Step 11) — build from `meta.href`, not its `href`
+- **Walkthrough:** none
+
+### Step 11 — canonical-links honours `base_path` (triage #6, ROADMAP O3) — ⬜ todo
+
+- **Goal:** in `../nera-plugin-canonical-links`, canonical and alternate hrefs are `origin + app.basePath + meta.href`, matching the sitemap on a `base_path` site; a test pins it; patch version bump + CHANGELOG `### Fixed` in that repo (no publish — the tag/push goes into the release handover); this repo's ROADMAP O3 → resolved and D2's "known divergence" note removed.
+- **Files:** `../nera-plugin-canonical-links/index.js`, its test file, its `CHANGELOG.md` + `package.json`/`package-lock.json` (via `npm version patch --no-git-tag-version`), `ROADMAP.md`
+- **Verify:** in that repo `npx vitest run && npm run lint` — green; here `npx vitest run` still green
+- **Review hardest:** sites without `base_path` produce byte-identical output; commit lands in that repo, not this one
+- **Risks:** classification — a changed canonical URL on `base_path` sites is a bugfix (patch), state that in the CHANGELOG
+- **Walkthrough:** none

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSitemap, isListed, pickLastmod, toLastmod } from '../src/sitemap.js'
+import { MAX_BYTES, MAX_URLS, buildSitemap, isListed, pickLastmod, protocolLimitWarning, toLastmod } from '../src/sitemap.js'
 
 const ORIGIN = 'https://example.com'
 const page = (meta) => ({ content: '', meta: { layout: 'pages/default.pug', ...meta } })
@@ -133,9 +133,9 @@ describe('buildSitemap', () => {
         expect(xml).toContain('<loc>https://example.com/docs/index.html</loc>')
     })
 
-    it('escapes the URL', () => {
+    it('escapes the URL: & and \' XML-escaped, <, > and " percent-encoded', () => {
         const xml = buildSitemap([page({ href: '/a&b/<c>/\'d".html' })], { origin: ORIGIN })
-        expect(xml).toContain('<loc>https://example.com/a&amp;b/&lt;c&gt;/&apos;d&quot;.html</loc>')
+        expect(xml).toContain('<loc>https://example.com/a&amp;b/%3Cc%3E/&apos;d%22.html</loc>')
     })
 
     it('leaves out unlisted pages and survives junk entries from other plugins', () => {
@@ -204,5 +204,45 @@ describe('buildSitemap', () => {
     it('ignores createdAt for lastmod', () => {
         const xml = buildSitemap([page({ href: '/a.html', createdAt: new Date() })], { origin: ORIGIN })
         expect(xml).not.toContain('<lastmod>')
+    })
+
+    it('percent-encodes a <loc> before XML-escaping it', () => {
+        const xml = buildSitemap([page({ href: '/a&b c.html' }), page({ href: '/über.html' })], { origin: ORIGIN })
+        expect(xml).toContain('<loc>https://example.com/a&amp;b%20c.html</loc>')
+        expect(xml).toContain('<loc>https://example.com/%C3%BCber.html</loc>')
+    })
+
+    it('matches exclude patterns against the unencoded href', () => {
+        const xml = buildSitemap([page({ href: '/über uns/a.html' }), page({ href: '/b.html' })], {
+            origin: ORIGIN,
+            exclude: ['/über uns/*'],
+        })
+        expect(xml).not.toContain('a.html')
+        expect(xml).toContain('<loc>https://example.com/b.html</loc>')
+    })
+})
+
+describe('protocolLimitWarning', () => {
+    it('is null within both caps', () => {
+        expect(protocolLimitWarning(buildSitemap([page({ href: '/a.html' })], { origin: ORIGIN }))).toBeNull()
+        expect(protocolLimitWarning('<url>'.repeat(MAX_URLS))).toBeNull()
+    })
+
+    it('names the URL count above 50,000', () => {
+        const message = protocolLimitWarning('<url>'.repeat(MAX_URLS + 1))
+        expect(message).toContain(`${MAX_URLS + 1} URLs (limit 50000)`)
+        expect(message).not.toContain('bytes')
+        expect(message).toContain('written as one file')
+    })
+
+    it('names the size above 50 MB (in memory, nothing on disk)', () => {
+        const message = protocolLimitWarning('x'.repeat(MAX_BYTES + 1))
+        expect(message).toContain(`${MAX_BYTES + 1} bytes (limit 52428800)`)
+        expect(message).not.toContain('URLs')
+    })
+
+    it('counts bytes, not characters', () => {
+        expect(protocolLimitWarning('ü'.repeat(MAX_BYTES / 2))).toBeNull()
+        expect(protocolLimitWarning(`${'ü'.repeat(MAX_BYTES / 2)}x`)).toContain('bytes')
     })
 })

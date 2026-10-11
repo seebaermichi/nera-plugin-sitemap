@@ -210,14 +210,60 @@ Each slice is one step of the issue plan (`plans/issues/01a1260d-…-sitemap-xml
 
 ### Slice 7 — README, CHANGELOG, release preparation
 
-- [ ] README (install, config, D6 behaviour, link to https://nera.js.org), `CHANGELOG.md` `## [1.0.0]`, `npm pack --dry-run` lists only what ships, prepared `generator/PLUGINS.md` and en/de/es `nera-website` catalog entries, and the release handover (bootstrap publish of 1.0.0 by hand, then a CI-published 1.0.1 within ~2 days so the Trusted Publisher does not expire).
+- [x] README (install, config, D6 behaviour, link to https://nera.js.org), `CHANGELOG.md` `## [1.0.0]`, `npm pack --dry-run` lists only what ships, prepared `generator/PLUGINS.md` and en/de/es `nera-website` catalog entries, and the release handover (bootstrap publish of 1.0.0 by hand, then a CI-published 1.0.1 within ~2 days so the Trusted Publisher does not expire).
+
+**Done 2026-10-11.** README follows `plugin-code-blocks` (badges, nera.js.org link, Compatibility, Development, License) and documents D2–D7 as built, including the `base_path` caveat for `robots.txt` and the one-file limit (O2). `CHANGELOG.md` carries `## [1.0.0] - 2026-10-11`. `npm pack --dry-run` ships `index.js`, `src/`, `config/`, `README.md`, `CHANGELOG.md`, `LICENSE`, `package.json` only. O2 corrected: 1.0 does **not** warn above the protocol's cap (the earlier text promised a warning the code never had). The catalog entries and the handover are below; nothing was published, pushed or committed outside this repo.
+
+#### Release handover
+
+Not run by the session (never publish or push). In order:
+
+1. Create `github.com/seebaermichi/nera-plugin-sitemap` (public), add it as `origin`, push `main`. Then `generator/scripts/fleet-check.sh --fix nera-plugin-sitemap` from the workspace root, enable private vulnerability reporting, and add `.github/dependabot.yml` copied from a plugin.
+2. Bootstrap-publish 1.0.0 by hand from this repo: `npx vitest run && npm run lint && npm publish --access public`, then `git tag -a v1.0.0 -m v1.0.0 && git push origin v1.0.0` (the tag's CI publish fails on the existing version; that is expected).
+3. On npmjs.com, add the Trusted Publisher: repository `seebaermichi/nera-plugin-sitemap`, workflow `publish.yml`.
+4. Within ~2 days, a real CI release so the Trusted Publisher does not expire: a patch change with its CHANGELOG entry, `npm version patch --no-git-tag-version`, commit, then `git tag -a v1.0.1 -m v1.0.1 && git push origin main v1.0.1`.
+5. Catalog entries (below) in `generator/PLUGINS.md` and the three `nera-website` pages; `nera build` + `nera validate` in `nera-website`, then push.
+6. `nera-cli/ROADMAP-ai.md` L8: point to this ROADMAP and mark the sitemap plugin released.
+
+`generator/PLUGINS.md` — after "Simple page list", and the heading becomes `## List of plugins (17)`:
+
+```markdown
+-   [Sitemap](https://github.com/seebaermichi/nera-plugin-sitemap)
+```
+
+`nera-website/pages/plugins/index.md` — after "Simple page list" in the `plugins:` list:
+
+```yaml
+    - name: Sitemap
+      package: '@nera-static/plugin-sitemap'
+      description: Generates a sitemap.xml of every rendered page and a robots.txt pointing to it.
+      url: https://github.com/seebaermichi/nera-plugin-sitemap
+```
+
+`nera-website/pages/de/plugins/index.md`, same place:
+
+```yaml
+    - name: Sitemap
+      package: '@nera-static/plugin-sitemap'
+      description: Generiert eine sitemap.xml aller gerenderten Seiten und eine robots.txt, die darauf verweist.
+      url: https://github.com/seebaermichi/nera-plugin-sitemap
+```
+
+`nera-website/pages/es/plugins/index.md`, same place:
+
+```yaml
+    - name: Sitemap
+      package: '@nera-static/plugin-sitemap'
+      description: Genera un sitemap.xml de todas las páginas renderizadas y un robots.txt que apunta a él.
+      url: https://github.com/seebaermichi/nera-plugin-sitemap
+```
 
 ---
 
 ## Open items
 
 - **O1 — hreflang alternates in the sitemap** (`xhtml:link`). Needs a reliable way to pair translations; canonical-links pairs them by its `page_identifier` frontmatter key. Additive (minor) when it comes.
-- **O2 — Sitemap index above 50 000 URLs or 50 MB.** The protocol caps one file there. 1.0 writes one file and warns when the cap is exceeded; splitting into `sitemap-1.xml…` plus a `<sitemapindex>` is a later minor.
+- **O2 — Sitemap index above 50 000 URLs or 50 MB.** The protocol caps one file there. 1.0 writes one file and does not check the cap (no warning; the README names the limit); splitting into `sitemap-1.xml…` plus a `<sitemapindex>` is a later minor.
 - **O3 — canonical-links ignores `base_path`** (D2, known divergence). Belongs to `nera-plugin-canonical-links`.
 - **O4 — A theme package's `robots.txt`.** Plugin assets overwrite theme assets, so a robots.txt shipped by an installed theme package (not the site's `theme/assets`) is replaced by the generated one. No theme ships one today; revisit when one does.
 
@@ -234,7 +280,7 @@ Public contract: the config keys and their defaults, the output path, the XML sh
 ## Acceptance criteria
 
 - [x] The repo has its own `ROADMAP.md` as the plugin's spec (L8 points to it — the pointer in `nera-cli/ROADMAP-ai.md` is part of the release handover).
-- [ ] A site depending on the plugin gets a valid sitemaps.org `public/sitemap.xml` with absolute, escaped, `base_path`-aware URLs.
-- [ ] A `robots.txt` pointer to the sitemap is produced (D6).
-- [ ] The package matches the fleet (CI workflows, LICENSE, README linking nera.js.org, CHANGELOG, `files`) and is ready for the 1.0.0 bootstrap publish.
-- [ ] The PLUGINS.md and three website catalog entries are prepared for the release handover.
+- [x] A site depending on the plugin gets a valid sitemaps.org `public/sitemap.xml` with absolute, escaped, `base_path`-aware URLs (slice 6's integration test).
+- [x] A `robots.txt` pointer to the sitemap is produced (D6).
+- [x] The package matches the fleet (CI workflows, LICENSE, README linking nera.js.org, CHANGELOG, `files`) and is ready for the 1.0.0 bootstrap publish.
+- [x] The PLUGINS.md and three website catalog entries are prepared for the release handover (slice 7).

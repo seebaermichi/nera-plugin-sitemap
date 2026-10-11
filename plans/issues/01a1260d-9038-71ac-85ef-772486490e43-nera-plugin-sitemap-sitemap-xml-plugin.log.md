@@ -503,3 +503,73 @@ goal (4 sites through real `run()`, exact sitemap/robots, byte-identical rebuild
 ## Step 6 — approved (2026-10-11)
 
 snagio: ticked
+commit: 80d4fac
+
+## Step 7 — started (2026-10-11)
+
+base_sha: 80d4fac72023da00a8661c2230a953ea86c95a0f
+mode: fresh
+
+## Step 7 — implemented (2026-10-11)
+
+base_sha: 80d4fac
+
+### Changed
+- `README.md` — new, modelled on plugin-code-blocks (badges under the title, nera.js.org link, Compatibility/Development/License); documents origin resolution, which pages are listed (D3), `lastmod` (D4), multilingual (D5), the robots.txt pointer incl. the `base_path` caveat (D6), config table matching `src/config.js` readers (D7), known limitations (O2, O3)
+- `CHANGELOG.md` — new, Keep a Changelog, `## [1.0.0] - 2026-10-11` with one Added bullet per contract piece
+- `ROADMAP.md` — slice 7 ticked with Done note; "Release handover" (repo + fleet-check, bootstrap publish, Trusted Publisher, CI 1.0.1 within ~2 days, catalogs, ROADMAP-ai L8 pointer) and the prepared PLUGINS.md + en/de/es catalog entries; acceptance criteria ticked; O2 corrected
+
+### Fixed alongside
+- `ROADMAP.md:220` — O2 promised "warns when the cap is exceeded", the code has no such warning (grep: no cap check in `src/`) — doc corrected to what the code does, README names the limit — docs only, no test
+
+### Carry forward
+- design · S · `src/sitemap.js` — a warning above 50 000 URLs / 50 MB (O2) — not in this step's goal; additive patch/minor later
+
+### Verification
+```
+npx vitest run → Test Files  7 passed (7) / Tests  92 passed (92)
+npm run lint → eslint . (no output, exit 0)
+npm pack --dry-run → total files: 12 — CHANGELOG.md, LICENSE, README.md, config/sitemap.yaml, index.js, package.json, src/{config,guard,robots,sitemap,urls,warn}.js
+catalog descriptions with a raw ": " after the key → 0
+```
+
+### Self-critique
+- Fixed O2 by correcting the doc rather than adding the warning: adding behaviour in a docs step would widen the step; the README states the limit honestly.
+- Did not tick the acceptance criteria in the plan file (only the ROADMAP's) — `/approve-step` / `/work-issue` own the plan.
+- Least sure: the handover step 2 order (tag push after the hand publish makes the tag's CI publish fail on the existing version) — mirrors the code-blocks/images bootstrap, but the maintainer may prefer not to push `v1.0.0` at all.
+- German/Spanish catalog wording is mine; "Generiert"/"Genera" match the neighbouring entries' style.
+
+### Pressure-test questions for the reviewer
+1. Does every README claim hold against the code — esp. "unknown key prints a warning", "directory output rejected", W3C string examples (`'2026-10'`, `'2026-10-08T11:30+02:00'`) passing `W3C_DATETIME`, and "`.nera-cache` ignored by git in `nera new` sites"?
+2. Config table vs `src/config.js` readers: `exclude` non-list (e.g. a number) → warning + default, which the table's "Invalid value" column does not spell out — enough?
+3. Are the catalog entries in the right alphabetical slot (after "Simple page list", before "Social media links") and the PLUGINS.md count right (16 → 17)?
+
+## Step 7 — reviewed (2026-10-11)
+
+Verdict: approve
+
+### 🔴 Blocking
+- none
+
+### Fixed in review
+- `ROADMAP.md:221` — handover pointed at `.claude/scripts/fleet-check.sh`; the script lives at `generator/scripts/fleet-check.sh` (run from the workspace root) — `ls ../generator/scripts/` → `fleet-check.sh`
+- `README.md:124` — `exclude` row now also says "any other type → warning, default used" (`readExclude` → `bad()`) — `npx vitest run` → 92 passed
+- `CHANGELOG.md:18` — "invalid values … warn" overpromised for `robots`, which never warns (`value !== false`); now says only `output`/`exclude` warn, any `robots` but `false` is `true` — `npm run lint` → clean
+
+### Fixed alongside
+- none
+
+### Carry forward
+- none (the O2 cap warning is already carried by the implementer)
+
+### Checked
+goal (README/CHANGELOG/ROADMAP handover + catalogs) · `npx vitest run` 92/92, `npm run lint` clean, `npm pack --dry-run` 12 files = exactly the intended list · Non-negotiables (no publish/push, ROADMAP as source of truth, Keep a Changelog four-space bullets), Framework correctness, Tests & hygiene · self-critique (O2 doc correction honest: no cap check in `src/`) · pressure-test answers below · walkthrough n/a (`none`)
+
+### Answers to the pressure-test questions
+1. Yes. Unknown key → `normalizeConfig` warns `ignoring unknown key`; directory output (`.`, `foo/`) → `safeOutput` null → warning + default; `'2026-10'` and `'2026-10-08T11:30+02:00'` both match `W3C_DATETIME` (`src/sitemap.js:11`); `lastmod: 2026-10-08T09:30:00Z` → `toLastmod` strips ms → `2026-10-08T09:30:00Z` as the README shows; `.nera-cache` is in `../nera-cli/template/_gitignore:6`; robots.txt body matches `src/robots.js:13`; README's YAML block is identical to the shipped `config/sitemap.yaml` (minus its header comment).
+2. Not quite — fixed in review (README `exclude` row now names the non-list case). Also the CHANGELOG claimed invalid `robots` warns; corrected.
+3. Yes. "Simple page list" < "Sitemap" < "Social…" in `../generator/PLUGINS.md:27-28` and in the website lists (en/de lines 53/57); heading is `(16)` today → `(17)` correct. Entry format matches neighbours (four-space list indent, quoted `package`); no description contains a raw `: `.
+
+## Step 7 — approved (2026-10-11)
+
+snagio: ticked

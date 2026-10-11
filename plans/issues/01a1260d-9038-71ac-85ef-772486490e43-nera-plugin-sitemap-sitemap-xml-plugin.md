@@ -92,7 +92,7 @@ Publishing, pushing and the catalog commits in other repos are handed over, not 
 - **Risks:** core's base_path rewrite touching the XML; slow or flaky temp-dir cleanup
 - **Walkthrough:** none
 
-### Step 7 — README, CHANGELOG and release preparation — ⬜ todo
+### Step 7 — README, CHANGELOG and release preparation — ✅ done
 
 - **Goal:** the package is ready for the 1.0.0 bootstrap: README (install, config, D6 behaviour, link to https://nera.js.org), `CHANGELOG.md` `## [1.0.0] - <date>`, `npm pack --dry-run` ships only intended files; ROADMAP gets slice status and the prepared PLUGINS.md + en/de/es catalog entries for the handover.
 - **Files:** `README.md`, `CHANGELOG.md`, `ROADMAP.md`

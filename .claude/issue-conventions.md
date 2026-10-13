@@ -106,3 +106,9 @@ wanted:
   maintainer prefers.
 - Hand over the release commands (GitHub repo creation, `git push`, bootstrap
   `npm publish`, `git tag -a v<x.y.z> …`) — do not run them.
+- If the release changes a config key or default, a command, template markup or
+  paths, `app.*`/`meta.*` output or a hook (minor or major): check the nera.js.org
+  tutorials that stamp this package (`grep -l 'plugin-sitemap:'
+  ../nera-website/pages/tutorials/*.md`) — still right → bump their
+  `verified_with`; stale → fix in en/de/es or file a `[nera-website] Tutorial …`
+  issue. See "Check the tutorials too" in `../CLAUDE.md` and `/tutorial-review`.

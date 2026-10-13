@@ -112,3 +112,9 @@ wanted:
   ../nera-website/pages/tutorials/*.md`) — still right → bump their
   `verified_with`; stale → fix in en/de/es or file a `[nera-website] Tutorial …`
   issue. See "Check the tutorials too" in `../CLAUDE.md` and `/tutorial-review`.
+- Remove the issue's plan files last, once nothing else needs them:
+  `git rm` its tracked files under `plans/` (`plans/issues/<id>-*`,
+  `plans/issues/browser-tests/<id>-*`, `plans/cloud/<id>-*`), delete the
+  untracked ones, and commit
+  `chore(plan): remove the plan files of the resolved <short title> issue`.
+  Git history keeps them; `plans/` holds only open issues.

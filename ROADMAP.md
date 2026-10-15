@@ -89,7 +89,7 @@ Entries other plugins add without `layout` or `href` are skipped, never a crash.
 
 ### D4 — `lastmod` only from authored frontmatter
 
-`lastmod` is the first of `meta.lastmod`, `meta.updatedAt`, `meta.date` that is a valid date. **`meta.createdAt` is never used**: core may have filled it from the file's birthtime, which CI stamps the same on every file, and the plugin cannot tell an authored `createdAt` from that fallback (decided 2026-10-11, see the verified facts). A site that only sets `createdAt:` gets no `lastmod`; adding `date:` or `lastmod:` fixes that.
+`lastmod` is the first of `meta.lastmod`, `meta.updatedAt`, `meta.updated` (added 2026-10-15, 1.1.0: the key theme-blog and plugin-feed use), `meta.date` that is a valid date. **`meta.createdAt` is never used**: core may have filled it from the file's birthtime, which CI stamps the same on every file, and the plugin cannot tell an authored `createdAt` from that fallback (decided 2026-10-11, see the verified facts). A site that only sets `createdAt:` gets no `lastmod`; adding `date:` or `lastmod:` fixes that.
 
 Format ([W3C Datetime](https://www.w3.org/TR/NOTE-datetime), as sitemaps.org requires):
 
@@ -169,7 +169,7 @@ alternates_identifier: slug
 | `alternates` | `auto` \| `false` | `auto` | `true` counts as `auto`; anything else → warning, default used |
 | `alternates_identifier` | string | `slug` | not a non-empty string → warning, default used |
 
-Frontmatter keys the plugin reads: `layout`, `href` (from core), `sitemap`, `robots`, `lastmod`, `updatedAt`, `date`, `lang` and the `alternates_identifier` key (`slug`); `meta.alternateLinks` when plugin-canonical-links wrote it; from `config/app.yaml` it reads `origin`, `robots`, `lang` and core's `basePath`/`folders`. It writes no `app.<key>` and no `meta.<key>`.
+Frontmatter keys the plugin reads: `layout`, `href` (from core), `sitemap`, `robots`, `lastmod`, `updatedAt`, `updated`, `date`, `lang` and the `alternates_identifier` key (`slug`); `meta.alternateLinks` when plugin-canonical-links wrote it; from `config/app.yaml` it reads `origin`, `robots`, `lang` and core's `basePath`/`folders`. It writes no `app.<key>` and no `meta.<key>`.
 
 ---
 

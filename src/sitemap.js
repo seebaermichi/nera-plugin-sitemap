@@ -23,7 +23,8 @@ const W3C_DATETIME = new RegExp(
 
 // Frontmatter keys tried for <lastmod>, in order. `createdAt` is left out
 // on purpose: core fills it from the file's birthtime (D4).
-const LASTMOD_KEYS = ['lastmod', 'updatedAt', 'date']
+// `updated` is the key @nera-static/theme-blog and plugin-feed read.
+const LASTMOD_KEYS = ['lastmod', 'updatedAt', 'updated', 'date']
 
 /**
  * A frontmatter value as a W3C Datetime string, or null when it is not a
@@ -42,7 +43,7 @@ export function toLastmod(value) {
     return null
 }
 
-/** The first valid date among `lastmod`, `updatedAt`, `date`, or null. */
+/** The first valid date among `lastmod`, `updatedAt`, `updated`, `date`, or null. */
 export function pickLastmod(meta) {
     for (const key of LASTMOD_KEYS) {
         const lastmod = toLastmod(meta[key])

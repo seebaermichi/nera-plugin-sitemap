@@ -50,10 +50,12 @@ describe('toLastmod', () => {
 })
 
 describe('pickLastmod', () => {
-    it('prefers lastmod, then updatedAt, then date', () => {
-        const all = { lastmod: '2026-03-01', updatedAt: '2026-02-01', date: '2026-01-01' }
+    it('prefers lastmod, then updatedAt, then updated, then date', () => {
+        const all = { lastmod: '2026-03-01', updatedAt: '2026-02-01', updated: '2026-01-15', date: '2026-01-01' }
         expect(pickLastmod(all)).toBe('2026-03-01')
         expect(pickLastmod({ ...all, lastmod: undefined })).toBe('2026-02-01')
+        expect(pickLastmod({ ...all, lastmod: undefined, updatedAt: undefined })).toBe('2026-01-15')
+        expect(pickLastmod({ updated: new Date('2026-01-12T00:00:00Z'), date: new Date('2025-11-04T00:00:00Z') })).toBe('2026-01-12')
         expect(pickLastmod({ date: '2026-01-01' })).toBe('2026-01-01')
     })
 

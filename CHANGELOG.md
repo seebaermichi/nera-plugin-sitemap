@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-15
+
+### Added
+
+-   `<lastmod>` also reads the frontmatter key `updated`, after `lastmod` and `updatedAt` and before `date`. It is the key `@nera-static/theme-blog` and `@nera-static/plugin-feed` use for a post's last change, so a post with `date` and `updated` was listed with its publication date.
+
 ## [1.0.1] - 2026-10-11
 
 ### Fixed

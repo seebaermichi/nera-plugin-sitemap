@@ -13,7 +13,7 @@ A plugin for the [Nera](https://github.com/seebaermichi/nera) static site genera
 
 - One `sitemap.xml` built from the final page list, including pages other plugins generate (e.g. tag overview pages)
 - Absolute, percent-encoded and XML-escaped URLs that honour `base_path`
-- `<lastmod>` from the page's frontmatter (`lastmod`, `updatedAt` or `date`), never from file dates
+- `<lastmod>` from the page's frontmatter (`lastmod`, `updatedAt`, `updated` or `date`), never from file dates
 - Pages leave the sitemap with `sitemap: false`, a `noindex` robots value, or an `exclude` pattern
 - `hreflang` alternates for every page that exists in more than one language
 - A `robots.txt` pointer to the sitemap, unless your site or its theme ships its own `robots.txt`
@@ -92,7 +92,7 @@ URLs are `origin` + `base_path` + the page's path, exactly as the site links to 
 
 ## `lastmod`
 
-`<lastmod>` comes from the first of these frontmatter keys that holds a valid date: `lastmod`, `updatedAt`, `date`.
+`<lastmod>` comes from the first of these frontmatter keys that holds a valid date: `lastmod`, `updatedAt`, `updated`, `date`. `updated` is the key `@nera-static/theme-blog` and `@nera-static/plugin-feed` use for a post's last change.
 
 ```markdown
 ---

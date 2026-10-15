@@ -1,6 +1,6 @@
 {
     "name": "@nera-static/plugin-sitemap",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "description": "A plugin for Nera static site generator to generate a sitemap.xml for every rendered page, plus a robots.txt pointer to it.",
     "main": "index.js",
     "scripts": {

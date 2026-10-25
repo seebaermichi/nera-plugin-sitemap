@@ -180,7 +180,7 @@ npx vitest run
 npm run lint
 ```
 
-`npm test` runs Vitest in watch mode. The integration tests build throwaway sites with the real `@nera-static/core` in a temp directory. `ROADMAP.md` records the design decisions behind the plugin.
+`npm test` runs Vitest in watch mode. The integration tests build throwaway sites with the real `@nera-static/core` in a temp directory.
 
 ## 📦 License
 

@@ -41,3 +41,9 @@ build/
 .playwright-mcp/
 plans/
 .claude/.work-issue-active
+
+# Internal development files (plans, Snagio workflow, specs) never belong in the repo
+/.claude/
+/.mcp.json
+/ROADMAP*.md
+/DESIGN-BRIEF.md
